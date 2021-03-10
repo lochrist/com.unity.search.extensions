@@ -19,8 +19,6 @@ MonoBehaviour:
   providerIds:
   - expression
   - asset
-  - scene
-  - calculator
   viewState:
     itemSize: 0
     displayMode: 32

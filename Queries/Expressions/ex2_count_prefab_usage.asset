@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: ex2_count_prefab_usage
   m_EditorClassIdentifier: 
-  text: 'sort{append{p: t:prefab *.prefab, @path, count{a:sceneIndex ref:@path} as
+  text: 'sort{select{p: t:prefab *.prefab, @path, count{a:sceneIndex ref:@path} as
     count}, @count, "desc"} '
   description: "Count prefab usage in scenes and sort by highest usage\r."
   providerIds:
   - expression
-  - asset
-  - scene
   - calculator
+  - scene
+  - asset
   viewState:
     itemSize: 102
     displayMode: 96

@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: ex5_biggest_meshes
   m_EditorClassIdentifier: 
-  text: 'first{sort{t:mesh, @vertices, desc}} '
+  text: 'first{sort{h: t:mesh, @vertices, desc}} '
   description: "Find the mesh with the most vertices\r."
   providerIds:
   - expression
-  - asset
-  - scene
   - calculator
+  - scene
+  - asset
   viewState:
     itemSize: 128
     displayMode: 96

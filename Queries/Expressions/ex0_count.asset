@@ -13,15 +13,10 @@ MonoBehaviour:
   m_Name: ex0_count
   m_EditorClassIdentifier: 
   text: count{a:assets}
-  description: 
+  description: Count the amount of assets in the project.
   providerIds:
   - expression
-  - calculator
   - asset
-  - find
-  - scene
-  - menu
-  - static_methods
   viewState:
     itemSize: 14
     displayMode: 32

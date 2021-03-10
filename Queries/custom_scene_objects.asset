@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: custom_scene_objects
   m_EditorClassIdentifier: 
-  text: ref=select{find:Assets/Scripts/**/*.cs, path}
-  description: 
+  text: 'h: ref=select{find:Assets/Scripts/**/*.cs, path}'
+  description: List scene objects that use a project custom script.
   providerIds:
-  - scene
   - expression
+  - scene
   - find
   viewState:
     itemSize: 129
