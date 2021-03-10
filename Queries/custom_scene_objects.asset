@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: custom_scene_objects
+  m_EditorClassIdentifier: 
+  text: ref=select{find:Assets/Scripts/**/*.cs, path}
+  description: 
+  providerIds:
+  - scene
+  - expression
+  - find
+  viewState:
+    itemSize: 129
+    displayMode: 129
+    group: all
+    tableConfig:
+      id: c6b40aeca98a440a9e31038f49335c02
+      name: custom script objects
+      columns:
+      - path: Name
+        provider: Name
+        selector: path
+        width: 387
+        options: 3178496
+        content:
+          m_Text: Name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: Default/Type
+        provider: 
+        selector: type
+        width: 135
+        options: 3178496
+        content:
+          m_Text: Type
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+  icon: {fileID: 0}
