@@ -1,0 +1,108 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: Explorer Directional Light
+  m_EditorClassIdentifier: 
+  text: h:t=Light
+  description: 
+  providerIds:
+  - help
+  - expression
+  - calculator
+  - asset
+  - find
+  - scene
+  - menu
+  - static_methods
+  - packages
+  - pdb
+  - store
+  - query
+  - settings
+  viewState:
+    itemSize: 129
+    displayMode: 129
+    group: all
+    tableConfig:
+      id: f393126df68d435ba0d212298f9a859c
+      name: Explorer Directional Light
+      columns:
+      - path: Name
+        provider: Name
+        selector: Name
+        width: 188
+        options: 3178496
+        content:
+          m_Text: Name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: Light/m_Type
+        provider: Experimental/SerializedProperty
+        selector: '#m_Type'
+        width: 93
+        options: 3178496
+        content:
+          m_Text: Type
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: Light type
+      - path: Light/m_Shape
+        provider: Experimental/SerializedProperty
+        selector: '#m_Shape'
+        width: 104
+        options: 3178496
+        content:
+          m_Text: Shape
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: Spot light shape
+      - path: Light/m_Lightmapping
+        provider: Experimental/SerializedProperty
+        selector: '#m_Lightmapping'
+        width: 140
+        options: 3178496
+        content:
+          m_Text: Lightmapping
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: Light/m_Color
+        provider: Experimental/SerializedProperty
+        selector: '#m_Color'
+        width: 111
+        options: 3178496
+        content:
+          m_Text: Color
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: Light/m_Intensity
+        provider: Experimental/SerializedProperty
+        selector: '#m_Intensity'
+        width: 93
+        options: 3178496
+        content:
+          m_Text: Intensity
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: Light intensity.
+      - path: m_Shadows.m_Type
+        provider: Experimental/SerializedProperty
+        selector: '#m_Shadows.m_Type'
+        width: 132
+        options: 3178496
+        content:
+          m_Text: Shadows
+          m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: Cookie size for directional lights.
+  icon: {fileID: 0}

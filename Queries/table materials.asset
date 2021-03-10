@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: table materials
+  m_EditorClassIdentifier: 
+  text: select{where{t:material, @#shader!=""}, name, #shader, @loc, @property_count
+    as vars}
+  description: 
+  providerIds:
+  - help
+  - expression
+  - calculator
+  - asset
+  - find
+  - scene
+  - menu
+  - static_methods
+  viewState:
+    itemSize: 129
+    displayMode: 129
+    group: expression
+    tableConfig:
+      id: f14dd417521a47f6b17b647ab4642806
+      name: table materials
+      priority: 30028
+      columns:
+      - path: name
+        provider: ItemName
+        selector: name
+        width: 193
+        options: 3178496
+        content:
+          m_Text: name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: shader
+        provider: ObjectReference
+        selector: shader
+        width: 253
+        options: 3178496
+        content:
+          m_Text: shader
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: vars
+        provider: 
+        selector: vars
+        width: 48
+        options: 3178496
+        content:
+          m_Text: vars
+          m_Image: {fileID: 0}
+          m_Tooltip: 
