@@ -22,16 +22,25 @@ MonoBehaviour:
     displayMode: 129
     group: all
     tableConfig:
-      id: f393126df68d435ba0d212298f9a859c
-      name: Explorer Directional Light
+      id: 2a7a12cab8344568a9cb9cf0d93c5eac
+      name: light_explorer
       columns:
       - path: Name
         provider: Name
         selector: Name
-        width: 188
+        width: 143
         options: 3178496
         content:
           m_Text: Name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: GameObject/Enabled
+        provider: GameObject/Enabled
+        selector: enabled
+        width: 88
+        options: 65536
+        content:
+          m_Text: Enabled
           m_Image: {fileID: 0}
           m_Tooltip: 
       - path: Light/m_Type

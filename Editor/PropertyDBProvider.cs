@@ -7,15 +7,15 @@ using UnityEditor.Search;
 static class PropertyDBProvider
 {
 	[SearchItemProvider]
-    public static SearchProvider CreateProvider()
-    {
+	public static SearchProvider CreateProvider()
+	{
 		var qe = BuildQueryEngine();
 		return new SearchProvider("pdb", "Property DB", (context, provider) => FetchItem(qe, context, provider))
 		{
 			isExplicitProvider = true,
 			fetchDescription = FetchDescription
 		};
-    }
+	}
 
 	private static string FetchDescription(SearchItem item, SearchContext context)
 	{
@@ -55,13 +55,13 @@ static class PropertyDBProvider
 		}
 	}
 
-    static QueryEngine<PropertyRecordItem> BuildQueryEngine()
-    {
+	static QueryEngine<PropertyRecordItem> BuildQueryEngine()
+	{
 		var queryEngineOptions = new QueryValidationOptions { validateFilters = false, skipNestedQueries = true };
 		var qe = new QueryEngine<PropertyRecordItem>(queryEngineOptions);
 		qe.SetSearchDataCallback(e => null, s => s.Length < 2 ? null : s, StringComparison.Ordinal);
 		return qe;
-    }
+	}
 
 	class PropertyDBEvaluator : IQueryHandler<PropertyRecordItem, object>
 	{
@@ -160,7 +160,7 @@ static class PropertyDBProvider
 			if (records == null)
 				return Enumerable.Empty<PropertyRecordItem>();
 			return records.Select(r => new PropertyRecordItem(dbView.database, r));
-        }
+		}
 
 		public bool Eval(PropertyRecordItem element) => throw new NotSupportedException();
 	}
@@ -178,7 +178,7 @@ static class PropertyDBProvider
 	}
 
 	static IEnumerable<SearchItem> FetchItem(QueryEngine<PropertyRecordItem> qe, SearchContext context, SearchProvider provider)
-    {
+	{
 		using (var view = SearchMonitor.GetView())
 		{
 			var query = qe.Parse(context.searchQuery, new PropertyDBQueryHandler(view));

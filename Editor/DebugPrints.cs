@@ -4,27 +4,23 @@ using UnityEditor.Search;
 using System.Collections.Generic;
 using System.Linq;
 
-[InitializeOnLoad]
 static class DebugPrints
 {
-	static long before;
-
-	static DebugPrints()
-	{
-		EditorApplication.delayCall += () => before = System.GC.GetTotalMemory(false);
-	}
-
-	[MenuItem("Test/Print Stats")] // REMOVE ME
+	[MenuItem("Search/Print Stats")]
 	internal static void PrintInfo()
 	{
 		SearchMonitor.PrintInfo();
-
-		long after = System.GC.GetTotalMemory(false);
-		long diff = after - before;
-		Debug.Log("allocated bytes=" + diff.ToString());
 	}
 
-    [MenuItem("Test/Request Text Async")]
+	[MenuItem("Search/Reset Databases")]
+	static void ResetDBs()
+	{
+		SearchMonitor.Reset();
+		SearchMonitor.PrintInfo();
+		SearchService.RefreshWindows();
+	}
+
+	[MenuItem("Search/Tests/Request Text Async")]
 	public static void RequestTextAsync()
 	{
 		var batchCount = 0;
@@ -40,7 +36,7 @@ static class DebugPrints
 		}, SearchFlags.Debug);
 	}
 
-	[MenuItem("Test/Request Context Async")]
+	[MenuItem("Search/Tests/Request Context Async")]
 	public static void RequestContextAsync()
 	{
 		var totalItemCount = 0;
