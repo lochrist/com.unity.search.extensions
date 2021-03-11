@@ -22,13 +22,13 @@ MonoBehaviour:
     displayMode: 129
     group: all
     tableConfig:
-      id: 08a0387d07fd460d82e03b114e1f5b4d
+      id: ce528307c08f4e3fa38d5268302ab7c0
       name: light_explorer
       columns:
       - path: GameObject/Enabled
         provider: GameObject/Enabled
         selector: enabled
-        width: 88
+        width: 64
         options: 65536
         content:
           m_Text: Enabled
@@ -46,7 +46,7 @@ MonoBehaviour:
       - path: Light/m_Type
         provider: Experimental/SerializedProperty
         selector: '#m_Type'
-        width: 93
+        width: 95
         options: 3178496
         content:
           m_Text: Type
@@ -76,7 +76,7 @@ MonoBehaviour:
       - path: Light/m_Color
         provider: Experimental/SerializedProperty
         selector: '#m_Color'
-        width: 111
+        width: 75
         options: 3178496
         content:
           m_Text: Color
@@ -96,7 +96,7 @@ MonoBehaviour:
       - path: m_Shadows.m_Type
         provider: Experimental/SerializedProperty
         selector: '#m_Shadows.m_Type'
-        width: 132
+        width: 108
         options: 3178496
         content:
           m_Text: Shadows
