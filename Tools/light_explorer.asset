@@ -22,18 +22,9 @@ MonoBehaviour:
     displayMode: 129
     group: all
     tableConfig:
-      id: 2a7a12cab8344568a9cb9cf0d93c5eac
+      id: 08a0387d07fd460d82e03b114e1f5b4d
       name: light_explorer
       columns:
-      - path: Name
-        provider: Name
-        selector: Name
-        width: 143
-        options: 3178496
-        content:
-          m_Text: Name
-          m_Image: {fileID: 0}
-          m_Tooltip: 
       - path: GameObject/Enabled
         provider: GameObject/Enabled
         selector: enabled
@@ -41,6 +32,15 @@ MonoBehaviour:
         options: 65536
         content:
           m_Text: Enabled
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: Name
+        provider: Name
+        selector: Name
+        width: 143
+        options: 3178496
+        content:
+          m_Text: Name
           m_Image: {fileID: 0}
           m_Tooltip: 
       - path: Light/m_Type
@@ -69,7 +69,7 @@ MonoBehaviour:
         width: 140
         options: 3178496
         content:
-          m_Text: Lightmapping
+          m_Text: Mode
           m_Image: {fileID: 1992151432481503067, guid: 0000000000000000d000000000000000,
             type: 0}
           m_Tooltip: 
