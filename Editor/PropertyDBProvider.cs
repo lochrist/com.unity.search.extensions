@@ -124,13 +124,19 @@ static class PropertyDBProvider
 			if (!(node is FilterNode fn))
 				throw new Exception($"Invalid filter node {node.token.text}");
 
-			if (inSet == null)
-				return Enumerable.Empty<PropertyRecordItem>();
-
 			if (string.Equals("path", fn.filterId, StringComparison.Ordinal))
 			{
 				var propertyHash = PropertyDatabase.CreatePropertyHash(fn.filterValue);
-				return inSet.Where(r => r.entry.key.propertyKey == propertyHash);
+
+				if (inSet != null)
+					return inSet.Where(r => r.entry.key.propertyKey == propertyHash);
+				else
+					return view.propertyDatabaseView.EnumerateAll()
+						.Where(r => r.key.propertyKey == propertyHash)
+						.Select(r => new PropertyRecordItem(view.propertyDatabaseView.database, r))
+						.Concat(view.propertyAliasesView.EnumerateAll()
+							.Where(r => r.key.propertyKey == propertyHash)
+							.Select(r => new PropertyRecordItem(view.propertyAliasesView.database, r)));
 			}
 
 			return Enumerable.Empty<PropertyRecordItem>();
