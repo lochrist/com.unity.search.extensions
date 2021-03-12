@@ -28,27 +28,37 @@ static class PropertyDBProvider
 
 	static string GetValueString(PropertyRecordItem record)
 	{
-		var recordValue = record.entry.recordValue;
+		if (record.type != PropertyDatabaseType.Volatile)
+			return GetValueString((PropertyDatabaseRecordValue)record.entry.value, record.db);
+
+		var volatileRecord = (PropertyDatabaseVolatileRecord)record.entry;
+		if (volatileRecord.recordValue.value == null)
+			return "<nil>";
+		return volatileRecord.recordValue.value.ToString();
+	}
+
+	static string GetValueString(PropertyDatabaseRecordValue recordValue, PropertyDatabase db)
+	{
 		if (!recordValue.valid)
 			return "<nil>";
-		var value = record.db.GetObjectFromRecordValue(recordValue);
+		var value = db.GetObjectFromRecordValue(recordValue);
 		if (value != null)
 			return value.ToString();
 		return $"{recordValue.uint32_0}, {recordValue.uint32_1}, {recordValue.uint32_2}, {recordValue.uint32_3}, " +
-			   $"{recordValue.uint32_4}, {recordValue.uint32_5}, {recordValue.uint32_6}, {recordValue.uint32_7}";
+			$"{recordValue.uint32_4}, {recordValue.uint32_5}, {recordValue.uint32_6}, {recordValue.uint32_7}";
 	}
 
 	readonly struct PropertyRecordItem
 	{
 		public readonly PropertyDatabase db;
-		public readonly PropertyDatabaseRecord entry;
+		public readonly IPropertyDatabaseRecord entry;
 
-		public int documentKey => entry.recordKey.documentKey;
-		public Hash128 propertyKey => entry.recordKey.propertyKey;
-		public PropertyDatabaseType type => (PropertyDatabaseType)entry.recordValue.propertyType;
+		public int documentKey => entry.key.documentKey;
+		public Hash128 propertyKey => entry.key.propertyKey;
+		public PropertyDatabaseType type => entry.value.type;
 		public string source => System.IO.Path.GetFileNameWithoutExtension(db.filePath);
 
-		public PropertyRecordItem(PropertyDatabase db, PropertyDatabaseRecord entry)
+		public PropertyRecordItem(PropertyDatabase db, IPropertyDatabaseRecord entry)
 		{
 			this.db = db;
 			this.entry = entry;
@@ -120,7 +130,7 @@ static class PropertyDBProvider
 			if (string.Equals("path", fn.filterId, StringComparison.Ordinal))
 			{
 				var propertyHash = PropertyDatabase.CreatePropertyHash(fn.filterValue);
-				return inSet.Where(r => r.entry.recordKey.propertyKey == propertyHash);
+				return inSet.Where(r => r.entry.key.propertyKey == propertyHash);
 			}
 
 			return Enumerable.Empty<PropertyRecordItem>();
@@ -156,8 +166,7 @@ static class PropertyDBProvider
 
 		private IEnumerable<PropertyRecordItem> GetRecords(int documentKey, PropertyDatabaseView dbView)
 		{
-			var records = dbView.Load(documentKey);
-			if (records == null)
+			if (!dbView.TryLoad(documentKey, out IEnumerable<IPropertyDatabaseRecord> records))
 				return Enumerable.Empty<PropertyRecordItem>();
 			return records.Select(r => new PropertyRecordItem(dbView.database, r));
 		}
