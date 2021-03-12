@@ -1,0 +1,117 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: reflection_probe_explorer
+  m_EditorClassIdentifier: 
+  text: t:reflectionprobe
+  description: 
+  providerIds:
+  - help
+  - expression
+  - calculator
+  - asset
+  - find
+  - scene
+  - menu
+  - static_methods
+  - packages
+  - pdb
+  - store
+  - query
+  - settings
+  viewState:
+    itemSize: 129
+    displayMode: 129
+    group: scene
+    tableConfig:
+      id: 4a13d39523c240228d0cc45cccb494d0
+      name: reflection_probe_explorer
+      columns:
+      - path: GameObject/Enabled
+        provider: GameObject/Enabled
+        selector: enabled
+        width: 64
+        options: 65536
+        content:
+          m_Text: Enabled
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: Name
+        provider: Name
+        selector: Name
+        width: 184
+        options: 3178496
+        content:
+          m_Text: Name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_Mode
+        provider: Experimental/SerializedProperty
+        selector: '#m_Mode'
+        width: 63
+        options: 3178496
+        content:
+          m_Text: Mode
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_HDR
+        provider: Experimental/SerializedProperty
+        selector: '#m_HDR'
+        width: 53
+        options: 3178496
+        content:
+          m_Text: HDR
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_Resolution
+        provider: Experimental/SerializedProperty
+        selector: '#m_Resolution'
+        width: 91
+        options: 3178496
+        content:
+          m_Text: Resolution
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_ShadowDistance
+        provider: Experimental/SerializedProperty
+        selector: '#m_ShadowDistance'
+        width: 127
+        options: 3178496
+        content:
+          m_Text: Shadow Distance
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_NearClip
+        provider: Experimental/SerializedProperty
+        selector: '#m_NearClip'
+        width: 85
+        options: 3178496
+        content:
+          m_Text: Near Plane
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: ReflectionProbe/m_FarClip
+        provider: Experimental/SerializedProperty
+        selector: '#m_FarClip'
+        width: 76
+        options: 3178496
+        content:
+          m_Text: Far Plane
+          m_Image: {fileID: -3076085332970660798, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+  icon: {fileID: 0}
