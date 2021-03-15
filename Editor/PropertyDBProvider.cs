@@ -53,7 +53,7 @@ static class PropertyDBProvider
 		public readonly PropertyDatabase db;
 		public readonly IPropertyDatabaseRecord entry;
 
-		public int documentKey => entry.key.documentKey;
+		public ulong documentKey => entry.key.documentKey;
 		public Hash128 propertyKey => entry.key.propertyKey;
 		public PropertyDatabaseType type => entry.value.type;
 		public string source => System.IO.Path.GetFileNameWithoutExtension(db.filePath);
@@ -164,13 +164,13 @@ static class PropertyDBProvider
 
 		private IEnumerable<PropertyRecordItem> GetRecords(IQueryNode node/*, IEnumerable<PropertyRecordItem> inSet*/)
 		{
-			if (!Utils.TryParse(node.identifier, out int documentKey))
+			if (!Utils.TryParse(node.identifier, out ulong documentKey))
 				documentKey = PropertyDatabase.CreateDocumentKey(node.identifier);
 			return GetRecords(documentKey, view.propertyDatabaseView)
 				.Concat(GetRecords(documentKey, view.propertyAliasesView));
 		}
 
-		private IEnumerable<PropertyRecordItem> GetRecords(int documentKey, PropertyDatabaseView dbView)
+		private IEnumerable<PropertyRecordItem> GetRecords(ulong documentKey, PropertyDatabaseView dbView)
 		{
 			if (!dbView.TryLoad(documentKey, out IEnumerable<IPropertyDatabaseRecord> records))
 				return Enumerable.Empty<PropertyRecordItem>();
