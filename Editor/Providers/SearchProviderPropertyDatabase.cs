@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor.Search;
 
-static class PropertyDBProvider
+static class SearchProviderPropertyDatabase
 {
 	[SearchItemProvider]
 	public static SearchProvider CreateProvider()
