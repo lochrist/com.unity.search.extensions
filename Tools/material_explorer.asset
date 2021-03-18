@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: material_explorer
+  m_EditorClassIdentifier: 
+  text: 't:material '
+  description: 
+  providerIds:
+  - asset
+  viewState:
+    itemSize: 129
+    displayMode: 129
+    group: asset
+    tableConfig:
+      id: 12d78e79096143bd9215372d4ab054b0
+      name: material_explorer
+      columns:
+      - path: Name
+        provider: Name
+        selector: Name
+        width: 241
+        options: 3178496
+        content:
+          m_Text: Name
+          m_Image: {fileID: 0}
+          m_Tooltip: 
+      - path: Material/m_Shader
+        provider: ObjectReference
+        selector: '#m_Shader'
+        width: 267
+        options: 3178496
+        content:
+          m_Text: Shader
+          m_Image: {fileID: 5596697988196858232, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: 
+      - path: Material/UOP1/Toon/_SpecularColor
+        provider: Experimental/MaterialProperty
+        selector: '#_SpecularColor'
+        width: 145
+        options: 3178496
+        content:
+          m_Text: Specular Color
+          m_Image: {fileID: -5962505394399907832, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: _SpecularColor
+      - path: Material/UOP1/Toon/_OutlineThickness
+        provider: Experimental/MaterialProperty
+        selector: '#_OutlineThickness'
+        width: 145
+        options: 3178496
+        content:
+          m_Text: Outline Thickness
+          m_Image: {fileID: -5962505394399907832, guid: 0000000000000000d000000000000000,
+            type: 0}
+          m_Tooltip: _OutlineThickness
+  icon: {fileID: 0}
