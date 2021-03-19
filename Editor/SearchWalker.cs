@@ -4,9 +4,49 @@ using UnityEditor.Search;
 using UnityEditor.Search.Providers;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
+using System;
+
+using Object = UnityEngine.Object;
 
 static class SearchWalker
 {
+	enum IdentifierType { kNullIdentifier = 0, kImportedAsset = 1, kSceneObject = 2, kSourceAsset = 3, kBuiltInAsset = 4 };
+
+	class PatchItem : IEquatable<PatchItem>
+	{
+		public readonly string source;
+		public readonly GlobalObjectId gid;
+		public readonly Object obj;
+
+		public PatchItem(string source, GlobalObjectId gid)
+			: this(source, gid, null)
+		{
+		}
+
+		public PatchItem(string source, GlobalObjectId gid, Object obj)
+		{
+			this.source = source;
+			this.gid = gid;
+			this.obj = obj;
+		}
+
+		public override bool Equals(object other)
+		{
+			return other is PatchItem l && Equals(l);
+		}
+
+		public override int GetHashCode()
+		{
+			return gid.GetHashCode();
+		}
+
+		public bool Equals(PatchItem other)
+		{
+			return string.Equals(this.gid.ToString(), other.gid.ToString(), StringComparison.Ordinal);
+		}
+	}
+
 	[MenuItem("Search/Search And Update")]
 	public static void ExecuteSearchUpdate()
 	{
@@ -25,24 +65,32 @@ static class SearchWalker
 
 		// For each material, find object references
 		int processCount = 0;
+		var objectIds = new List<PatchItem>();
 		foreach (var matPath in materialPaths)
 		{
-			Debug.Log($"<color=#23E55A>Processing</color> {matPath}");
+			Debug.Log($"<color=#23E55A>Fetching objects...</color> {matPath}");
 			Progress.Report(progressId, processCount++, materialPaths.Count, matPath);
-			foreach (var obj in EnumerateObjects($"ref=\"{matPath}\""))
-			{
-				if (!obj)
-				{
-					yield return null;
-					continue;
-				}
+			yield return EnumerateGlobalObjectIds(matPath, objectIds);
+		}
 
-				// TODO: Patch object
-				Debug.Log($"Patching {obj}...");
+		Progress.Report(progressId, -1, "Sorting objects...");
+		objectIds = objectIds.OrderBy(pi => pi.gid.assetGUID.ToString()).Distinct().ToList();
+
+		processCount = 0;
+		foreach (var pi in EnumerateObjects(objectIds))
+		{
+			if (pi == null)
+			{
 				yield return null;
-				yield return null;
-				yield return null;
+				continue;
 			}
+
+			// TODO: Patch object
+			Debug.Log($"<color=#23E55A>Patching</color> {pi.obj} {{{pi.gid}}}...");
+			Progress.Report(progressId, processCount++, objectIds.Count, pi.source);
+			yield return null;
+			yield return null;
+			yield return null;
 		}
 	}
 
@@ -66,9 +114,9 @@ static class SearchWalker
 		}
 	}
 
-	private static IEnumerable<Object> EnumerateObjects(string query)
+	private static IEnumerable<Object> EnumerateGlobalObjectIds(string source, ICollection<PatchItem> ids)
 	{
-		using (var context = SearchService.CreateContext("asset", query))
+		using (var context = SearchService.CreateContext("asset", $"ref=\"{source}\""))
 		using (var request = SearchService.Request(context))
 		{
 			foreach (var r in request)
@@ -79,25 +127,46 @@ static class SearchWalker
 					continue;
 				}
 
-				if (!GlobalObjectId.TryParse(r.id, out var gid))
-					continue;
+				if (GlobalObjectId.TryParse(r.id, out var gid))
+					ids.Add(new PatchItem(source, gid));
+			}
+		}
+	}
 
-				var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
-				if (!obj)
+	private static IEnumerable<PatchItem> EnumerateObjects(ICollection<PatchItem> ids)
+	{
+		foreach (var pi in ids)
+		{
+			var gid = pi.gid;
+			var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
+			if (!obj)
+			{
+				// Open container scene
+				if (gid.identifierType == (int)IdentifierType.kSceneObject)
 				{
-					// TODO: Open container scene
-
-					// Reload object
-					obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
-					if (!obj)
+					var containerPath = AssetDatabase.GUIDToAssetPath(gid.assetGUID);
+					var containerAsset = AssetDatabase.LoadAssetAtPath<Object>(containerPath);
+					if (containerAsset != null)
 					{
-						Debug.Log($"<color=#E5455A>Failed to patch</color> {r.id}");
-						continue;
+						AssetDatabase.OpenAsset(containerAsset);
+						yield return null;
+
+						var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+						while (!scene.isLoaded)
+							yield return null;
 					}
 				}
 
-				yield return obj;
+				// Reload object
+				obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
+				if (!obj)
+				{
+					Debug.LogError($"<color=#E5455A>Failed to patch</color> {gid}");
+					continue;
+				}
 			}
+
+			yield return new PatchItem(pi.source, gid, obj);
 		}
 	}
 }
