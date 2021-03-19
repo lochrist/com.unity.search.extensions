@@ -15,8 +15,12 @@ static class MaterialReferencesIndexer
 
 		foreach (var m in c.sharedMaterials)
 		{
+			if (!m)
+				continue;
+
 			// Index material name reference
-			indexer.AddProperty("ref", m.name.Replace(" (Instance)", "").ToLowerInvariant(), context.documentIndex);
+			if (!string.IsNullOrEmpty(m.name))
+				indexer.AddProperty("ref", m.name.Replace(" (Instance)", "").ToLowerInvariant(), context.documentIndex);
 
 			// Index material asset path reference
 			IndexObjectAssetPathReference(m, context, indexer);
