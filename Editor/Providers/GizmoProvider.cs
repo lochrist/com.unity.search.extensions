@@ -16,8 +16,9 @@ namespace UnityEditor.Search.Providers
 			queryEngine = new QueryEngine<AInfo>();
 			queryEngine.SetSearchDataCallback(YieldGizmoNames, s => s, StringComparison.OrdinalIgnoreCase);
 
-			return new SearchProvider(id, "Gizmo Provider")
+			return new SearchProvider(id, "Gizmo")
 			{
+				isExplicitProvider = true,
 				fetchItems = FetchItems,
 				fetchDescription = FetchDescription,
 				fetchThumbnail = FetchThumbnail

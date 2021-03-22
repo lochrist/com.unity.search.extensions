@@ -145,16 +145,14 @@ static class SearchWalker
 				if (gid.identifierType == (int)IdentifierType.kSceneObject)
 				{
 					var containerPath = AssetDatabase.GUIDToAssetPath(gid.assetGUID);
-					var containerAsset = AssetDatabase.LoadAssetAtPath<Object>(containerPath);
-					if (containerAsset != null)
-					{
-						AssetDatabase.OpenAsset(containerAsset);
-						yield return null;
 
-						var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-						while (!scene.isLoaded)
-							yield return null;
-					}
+					var mainInstanceID = AssetDatabase.GetMainAssetInstanceID(containerPath);
+					AssetDatabase.OpenAsset(mainInstanceID);
+					yield return null;
+
+					var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+					while (!scene.isLoaded)
+						yield return null;
 				}
 
 				// Reload object
