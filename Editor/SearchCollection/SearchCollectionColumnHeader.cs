@@ -11,7 +11,7 @@ namespace UnityEditor.Search.Collections
         static class InnerStyles
         {
             public static GUIContent createContent = EditorGUIUtility.IconContent("CreateAddNew");
-            public static GUIStyle toolbarCreateAddNewDropDown = new GUIStyle(EditorStyles.toolbarCreateAddNewDropDown)
+            public static GUIStyle toolbarCreateAddNewDropDown = new GUIStyle("ToolbarCreateAddNewDropDown")
             {
                 fixedWidth = 32f,
                 fixedHeight = 0,
@@ -93,12 +93,14 @@ namespace UnityEditor.Search.Collections
 
             var hashForSearchField = "CollectionsSearchField".GetHashCode();
             var searchFieldControlID = GUIUtility.GetControlID(hashForSearchField, FocusType.Passive, searchTextRect);
+            #if USE_SEARCH_TABLE
             searchView.searchText = EditorGUI.ToolbarSearchField(
                 searchFieldControlID,
                 searchTextRect,
                 searchView.searchText,
                 EditorStyles.toolbarSearchField,
                 string.IsNullOrEmpty(searchView.searchText) ? GUIStyle.none : EditorStyles.toolbarSearchFieldCancelButton);
+            #endif
 
             DrawButtons(buttonStackRect);
         }

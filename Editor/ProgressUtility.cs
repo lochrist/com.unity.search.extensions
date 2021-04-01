@@ -1,3 +1,4 @@
+#if USE_SEARCH_TABLE
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -164,3 +165,4 @@ public static class ProgressUtility
         }
     }
 }
+#endif

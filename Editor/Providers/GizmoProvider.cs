@@ -1,3 +1,4 @@
+#if USE_SEARCH_TABLE
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -101,3 +102,4 @@ namespace UnityEditor.Search.Providers
 		static bool CanToggleGizmo(IReadOnlyCollection<SearchItem> arg) => arg.All(e => ((AInfo)e.data).HasGizmo());
 	}
 }
+#endif

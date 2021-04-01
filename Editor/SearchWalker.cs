@@ -1,3 +1,4 @@
+#if USE_SEARCH_TABLE
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Search;
@@ -168,3 +169,4 @@ static class SearchWalker
 		}
 	}
 }
+#endif

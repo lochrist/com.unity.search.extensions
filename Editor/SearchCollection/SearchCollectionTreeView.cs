@@ -18,7 +18,7 @@ namespace UnityEditor.Search.Collections
             showAlternatingRowBackgrounds = true;
 
             Reload();
-            EditorApplication.CallDelayed(() => multiColumnHeader.ResizeToFit());
+            EditorApplication.delayCall += () => multiColumnHeader.ResizeToFit();
         }
 
         protected override TreeViewItem BuildRoot()
@@ -31,7 +31,7 @@ namespace UnityEditor.Search.Collections
 
         protected override IList<TreeViewItem> BuildRows(TreeViewItem rowItem)
         {
-            EditorApplication.tick -= DelayedUpdateCollections;
+            EditorApplication.update -= DelayedUpdateCollections;
             return base.BuildRows(rowItem);
         }
 
@@ -152,13 +152,13 @@ namespace UnityEditor.Search.Collections
 
         public void UpdateCollections()
         {
-            EditorApplication.tick -= DelayedUpdateCollections;
-            EditorApplication.tick += DelayedUpdateCollections;
+            EditorApplication.update -= DelayedUpdateCollections;
+            EditorApplication.update += DelayedUpdateCollections;
         }
 
         private void DelayedUpdateCollections()
         {
-            EditorApplication.tick -= DelayedUpdateCollections;
+            EditorApplication.update -= DelayedUpdateCollections;
             BuildRows(rootItem);
             Repaint();
         }

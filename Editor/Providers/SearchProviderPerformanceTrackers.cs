@@ -1,3 +1,4 @@
+#if USE_SEARCH_TABLE
 using System;
 using System.Collections.Generic;
 using UnityEditor.Search;
@@ -284,3 +285,4 @@ static class SearchProviderPerformanceTrackers
 		ProfilerDriver.SetMarkerFiltering(markerName);
 	}
 }
+#endif

@@ -80,7 +80,7 @@ namespace UnityEditor.Search.Collections
         void Refresh()
         {
             if (parent is SearchCollectionTreeViewItem ctvi)
-                EditorApplication.CallDelayed(() => ctvi.Refresh(), 2d);
+                Utils.CallDelayed(() => ctvi.Refresh(), 2d);
         }
 
         public virtual bool CanStartDrag()

@@ -7,7 +7,11 @@ namespace UnityEditor.Search.Collections
 { 
     class SearchCollectionTreeViewItem : SearchTreeViewItem
     {
+        #if USE_SEARCH_TABLE
         public static readonly GUIContent collectionIcon = EditorGUIUtility.IconContent("ListView");
+        #else
+        public static readonly GUIContent collectionIcon = GUIContent.none;
+        #endif
 
         readonly SearchCollection m_Collection;
         public SearchCollection collection => m_Collection;
@@ -70,7 +74,9 @@ namespace UnityEditor.Search.Collections
             var menu = new GenericMenu();
             menu.AddItem(new GUIContent("Refresh"), false, () => Refresh());
             menu.AddSeparator("");
+#if USE_SEARCH_TABLE
             menu.AddItem(new GUIContent("Set Color"), false, SelectColor);
+#endif
             menu.AddItem(new GUIContent("Open"), false, () => Open());
             menu.AddItem(new GUIContent("Edit"), false, () => Selection.activeObject = m_Collection.query);
             menu.AddSeparator("");
@@ -78,12 +84,14 @@ namespace UnityEditor.Search.Collections
 
             menu.ShowAsContext();
         }
-
+        
+#if USE_SEARCH_TABLE
         private void SelectColor()
         {
             var c = collection.color;
             ColorPicker.Show(SetColor, new Color(c.r, c.g, c.b, 1.0f), false, false);
         }
+#endif
 
         private void SetColor(Color color)
         {

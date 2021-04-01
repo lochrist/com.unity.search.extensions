@@ -18,10 +18,12 @@ namespace UnityEditor.Search.Collections
 {
     class SearchCollectionWindow : EditorWindow, ISearchCollectionView
     {
+        #if USE_SEARCH_TABLE
         static class InnerStyles
         {
             public static readonly GUIContent collectionIcon = EditorGUIUtility.IconContent("ListView");
         }
+        #endif
 
         SearchCollectionTreeView m_TreeView;
 
@@ -87,7 +89,9 @@ namespace UnityEditor.Search.Collections
 
             m_TreeView = new SearchCollectionTreeView(m_TreeViewState, this);
 
+            #if USE_SEARCH_TABLE
             titleContent.image = InnerStyles.collectionIcon.image;
+            #endif
         }
 
         void OnDisable()
