@@ -131,7 +131,7 @@ static class EasySearchProviderExample
         public string version => m_Version ?? (m_Version = System.IO.File.ReadAllText(versionFile.FullName));
         public int assetCount => m_AssetCount != -1 ? m_AssetCount : (m_AssetCount = assetsDir.GetFiles("*.meta", System.IO.SearchOption.AllDirectories).Length);
 
-        [SearchItemProvider]
+        //[SearchItemProvider]
         public static SearchProvider ExampleProjects()
         {
             var icon = EditorGUIUtility.FindTexture("sv_icon_dot8_pix16_gizmo");

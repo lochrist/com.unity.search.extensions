@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 13982, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: ex0_count
   m_EditorClassIdentifier: 
-  text: count{a:assets}
+  text: count{a:assets} as "Asset Count"
   description: Count the amount of assets in the project.
   providerIds:
   - expression
@@ -25,4 +25,4 @@ MonoBehaviour:
       id: 
       name: 
       columns: []
-  icon: {fileID: 0}
+  icon: {fileID: 2800000, guid: abb1306ea22102e43be4855a845a16da, type: 3}
