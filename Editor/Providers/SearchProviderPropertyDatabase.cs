@@ -1,4 +1,4 @@
-#if USE_SEARCH_TABLE
+#if USE_PROPERTY_DATABASE
 using System;
 using System.Linq;
 using System.Collections.Generic;
