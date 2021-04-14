@@ -85,18 +85,19 @@ namespace UnityEditor.Search.Collections
             menu.ShowAsContext();
         }
         
-#if USE_SEARCH_TABLE
+        #if USE_SEARCH_TABLE
         private void SelectColor()
         {
             var c = collection.color;
             ColorPicker.Show(SetColor, new Color(c.r, c.g, c.b, 1.0f), false, false);
         }
-#endif
 
         private void SetColor(Color color)
         {
             m_Collection.color = color;
         }
+
+        #endif
 
         public void Refresh()
         {

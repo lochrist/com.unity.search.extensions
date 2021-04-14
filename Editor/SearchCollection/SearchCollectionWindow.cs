@@ -263,5 +263,10 @@ namespace UnityEditor.Search.Collections
             menu.AddItem(new GUIContent("Refresh"), false, () => m_TreeView.Reload());
             menu.ShowAsContext();
         }
+
+        public void ExecuteSelection()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
