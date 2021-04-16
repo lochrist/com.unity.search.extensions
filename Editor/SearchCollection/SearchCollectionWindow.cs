@@ -157,11 +157,11 @@ namespace UnityEditor.Search.Collections
 
         private void LoadCollection()
         {
-            var context = SearchService.CreateContext("asset", $"t={nameof(SearchQuery)}");
+            var context = SearchService.CreateContext(SearchService.GetObjectProviders(), $"t:{nameof(SearchQuery)}");
             SearchService.ShowPicker(context, SelectCollection, 
                 trackingHandler: _ => { }, 
                 title: "search collection",
-                defaultWidth: 300, defaultHeight: 500, itemSize: 0);
+                width: 300, height: 500, itemSize: 0);
         }
 
         private void SelectCollection(SearchItem selectedItem, bool canceled)
@@ -235,7 +235,12 @@ namespace UnityEditor.Search.Collections
             Repaint();
         }
 
-        public void ExecuteAction(SearchAction action, SearchItem[] items, bool endSearch = true)
+		public void ExecuteSelection()
+		{
+			throw new NotImplementedException();
+		}
+
+		public void ExecuteAction(SearchAction action, SearchItem[] items, bool endSearch = true)
         {
             throw new NotImplementedException();
         }
