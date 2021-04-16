@@ -208,55 +208,10 @@ namespace UnityEditor.Search.Collections
             wnd.titleContent = new GUIContent("Collections");
         }
 
-        public void SetSelection(params int[] selection)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void AddSelection(params int[] selection)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void SetSearchText(string searchText, TextCursorPlacement moveCursor = TextCursorPlacement.MoveLineEnd)
-        {
-            SetSearchText(searchText, moveCursor, -1);
-        }
-
-        public void SetSearchText(string searchText, TextCursorPlacement moveCursor, int cursorInsertPosition)
-        {
-            m_SearchText = searchText;
-            UpdateView();
-        }
-
         public void Refresh(RefreshFlags reason = RefreshFlags.Default)
         {
             m_TreeView.Reload();
             Repaint();
-        }
-
-		public void ExecuteSelection()
-		{
-			throw new NotImplementedException();
-		}
-
-		public void ExecuteAction(SearchAction action, SearchItem[] items, bool endSearch = true)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void ShowItemContextualMenu(SearchItem item, Rect contextualActionPosition)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void SelectSearch()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void Dispose()
-        {
         }
 
         public void OpenContextualMenu()
@@ -267,11 +222,6 @@ namespace UnityEditor.Search.Collections
             menu.AddSeparator("");
             menu.AddItem(new GUIContent("Refresh"), false, () => m_TreeView.Reload());
             menu.ShowAsContext();
-        }
-
-        public void ExecuteSelection()
-        {
-            throw new NotImplementedException();
         }
     }
 }

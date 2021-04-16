@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace UnityEditor.Search.Collections
 {
-    interface ISearchCollectionView : ISearchView
+    interface ISearchCollectionView
     {
         string searchText { get; set; }
         ISet<string> fieldNames { get; }
