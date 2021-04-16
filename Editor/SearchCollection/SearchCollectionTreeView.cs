@@ -40,9 +40,10 @@ namespace UnityEditor.Search.Collections
             if (args.item is SearchCollectionTreeViewItem ctvi)
             {
                 #if USE_SEARCH_TABLE
-                if (Event.current.type == EventType.Repaint)
+				var c = ctvi.collection.color;
+                if (Event.current.type == EventType.Repaint && c.a != 0f)
                 {
-                    var c = ctvi.collection.color;
+                    
                     GUI.DrawTexture(args.rowRect, EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(c.r, c.g, c.b, 1.0f), 0f, 0f);
                 }
                 #endif

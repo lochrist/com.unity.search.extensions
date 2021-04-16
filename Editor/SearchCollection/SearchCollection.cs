@@ -10,7 +10,7 @@ namespace UnityEditor.Search.Collections
         public SearchCollection()
         {
             #if USE_SEARCH_TABLE
-            color = Color.clear;
+            color = new Color(0, 0, 0, 0);
             #endif
             items = new HashSet<SearchItem>();
             objects = new List<UnityEngine.Object>();

@@ -45,28 +45,6 @@ namespace UnityEditor.Search.Collections
             }
         }
 
-        public ISearchList results => throw new NotSupportedException();
-        public SearchContext context => throw new NotSupportedException();
-
-        public DisplayMode displayMode => DisplayMode.List;
-        public float itemIconSize { get => 0f; set => throw new NotSupportedException(); }
-        public bool multiselect { get => true; set => throw new NotSupportedException(); }
-
-        public Action<SearchItem, bool> selectCallback => throw new NotSupportedException();
-        public Func<SearchItem, bool> filterCallback => throw new NotSupportedException();
-        public Action<SearchItem> trackingCallback => throw new NotSupportedException();
-
-        public SearchSelection selection
-        {
-            get
-            {
-                return new SearchSelection(m_TreeView.GetSelection()
-                    .Select(idx => m_TreeView.GetRows()[idx] as SearchTreeViewItem)
-                    .Where(e => e != null)
-                    .Select(e => e.item));
-            }
-        }
-
         public ICollection<SearchCollection> collections => m_Collections;
         public ISet<string> fieldNames => EnumerateFieldNames();
 
@@ -157,14 +135,25 @@ namespace UnityEditor.Search.Collections
 
         private void LoadCollection()
         {
+			#if USE_SEARCH_PICKER
             var context = SearchService.CreateContext(SearchService.GetObjectProviders(), $"t:{nameof(SearchQuery)}");
             SearchService.ShowPicker(context, SelectCollection, 
                 trackingHandler: _ => { }, 
                 title: "search collection",
                 width: 300, height: 500, itemSize: 0);
+			#else
+			ObjectSelector.get.Show(null, typeof(SearchQuery), null, false, null, OnObjectSelectorClosed, null);
+			#endif
         }
 
-        private void SelectCollection(SearchItem selectedItem, bool canceled)
+		private void OnObjectSelectorClosed(UnityEngine.Object obj)
+		{
+			if (obj is SearchQuery searchQuery)
+				m_TreeView.Add(new SearchCollection(searchQuery));
+		}
+
+		#if USE_SEARCH_PICKER
+		private void SelectCollection(SearchItem selectedItem, bool canceled)
         {
             if (canceled)
                 return;
@@ -175,15 +164,7 @@ namespace UnityEditor.Search.Collections
             
             m_TreeView.Add(new SearchCollection(searchQuery));
         }
-
-        void ClearSearch()
-        {
-            searchText = "";
-            m_FocusSearchField = true;
-            GUI.changed = true;
-            GUI.FocusControl(null);
-            GUIUtility.ExitGUI();
-        }
+		#endif
 
         void UpdateView()
         {
@@ -206,12 +187,6 @@ namespace UnityEditor.Search.Collections
         {
             SearchCollectionWindow wnd = GetWindow<SearchCollectionWindow>();
             wnd.titleContent = new GUIContent("Collections");
-        }
-
-        public void Refresh(RefreshFlags reason = RefreshFlags.Default)
-        {
-            m_TreeView.Reload();
-            Repaint();
         }
 
         public void OpenContextualMenu()
