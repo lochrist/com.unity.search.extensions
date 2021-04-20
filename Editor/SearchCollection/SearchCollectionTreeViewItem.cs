@@ -74,9 +74,9 @@ namespace UnityEditor.Search.Collections
             var menu = new GenericMenu();
             menu.AddItem(new GUIContent("Refresh"), false, () => Refresh());
             menu.AddSeparator("");
-#if USE_SEARCH_TABLE
+			#if USE_SEARCH_TABLE
             menu.AddItem(new GUIContent("Set Color"), false, SelectColor);
-#endif
+			#endif
             menu.AddItem(new GUIContent("Open"), false, () => Open());
             menu.AddItem(new GUIContent("Edit"), false, () => Selection.activeObject = m_Collection.query);
             menu.AddSeparator("");

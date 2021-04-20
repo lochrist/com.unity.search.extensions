@@ -28,7 +28,6 @@ namespace UnityEditor.Search.Collections
         SearchCollectionTreeView m_TreeView;
 
         [SerializeField] string m_SearchText;
-        [SerializeField] bool m_FocusSearchField = true;
         [SerializeField] TreeViewState m_TreeViewState;
         [SerializeField] List<SearchCollection> m_Collections;
 
@@ -113,10 +112,6 @@ namespace UnityEditor.Search.Collections
                 evt.Use();
                 Close();
             }
-            else
-            {
-                FocusSearchField();
-            }
 
             if (evt.type == EventType.Used)
                 Repaint();
@@ -140,7 +135,7 @@ namespace UnityEditor.Search.Collections
             SearchService.ShowPicker(context, SelectCollection, 
                 trackingHandler: _ => { }, 
                 title: "search collection",
-                width: 300, height: 500, itemSize: 0);
+                defaultWidth: 300, defaultHeight: 500, itemSize: 0);
 			#else
 			ObjectSelector.get.Show(null, typeof(SearchQuery), null, false, null, OnObjectSelectorClosed, null);
 			#endif
@@ -169,17 +164,6 @@ namespace UnityEditor.Search.Collections
         void UpdateView()
         {
             m_TreeView.searchString = m_SearchText;
-        }
-
-        void FocusSearchField()
-        {
-            if (Event.current.type != EventType.Repaint)
-                return;
-            if (m_FocusSearchField)
-            {
-                SearchField.Focus();
-                m_FocusSearchField = false;
-            }
         }
 
         [MenuItem("Window/Search/Collections")]
