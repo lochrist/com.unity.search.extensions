@@ -1,4 +1,4 @@
-#if USE_SEARCH_TABLE
+#if UNITY_2021_2_OR_NEWER
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Search;
@@ -12,42 +12,6 @@ using Object = UnityEngine.Object;
 
 static class SearchWalker
 {
-	enum IdentifierType { kNullIdentifier = 0, kImportedAsset = 1, kSceneObject = 2, kSourceAsset = 3, kBuiltInAsset = 4 };
-
-	class PatchItem : IEquatable<PatchItem>
-	{
-		public readonly string source;
-		public readonly GlobalObjectId gid;
-		public readonly Object obj;
-
-		public PatchItem(string source, GlobalObjectId gid)
-			: this(source, gid, null)
-		{
-		}
-
-		public PatchItem(string source, GlobalObjectId gid, Object obj)
-		{
-			this.source = source;
-			this.gid = gid;
-			this.obj = obj;
-		}
-
-		public override bool Equals(object other)
-		{
-			return other is PatchItem l && Equals(l);
-		}
-
-		public override int GetHashCode()
-		{
-			return gid.GetHashCode();
-		}
-
-		public bool Equals(PatchItem other)
-		{
-			return string.Equals(this.gid.ToString(), other.gid.ToString(), StringComparison.Ordinal);
-		}
-	}
-
 	[MenuItem("Search/Search And Update")]
 	public static void ExecuteSearchUpdate()
 	{
@@ -95,7 +59,7 @@ static class SearchWalker
 		}
 	}
 
-	private static IEnumerator FindAssets(int progressId, string query, ICollection<string> filePaths)
+	static IEnumerator FindAssets(int progressId, string query, ICollection<string> filePaths)
 	{
 		using (var context = SearchService.CreateContext("find", query))
 		using (var request = SearchService.Request(context))
@@ -115,7 +79,7 @@ static class SearchWalker
 		}
 	}
 
-	private static IEnumerable<Object> EnumerateGlobalObjectIds(string source, ICollection<PatchItem> ids)
+	static IEnumerable<Object> EnumerateGlobalObjectIds(string source, ICollection<PatchItem> ids)
 	{
 		using (var context = SearchService.CreateContext("asset", $"ref=\"{source}\""))
 		using (var request = SearchService.Request(context))
@@ -134,7 +98,7 @@ static class SearchWalker
 		}
 	}
 
-	private static IEnumerable<PatchItem> EnumerateObjects(ICollection<PatchItem> ids)
+	static IEnumerable<PatchItem> EnumerateObjects(ICollection<PatchItem> ids)
 	{
 		foreach (var pi in ids)
 		{
@@ -166,6 +130,42 @@ static class SearchWalker
 			}
 
 			yield return new PatchItem(pi.source, gid, obj);
+		}
+	}
+
+	enum IdentifierType { kNullIdentifier = 0, kImportedAsset = 1, kSceneObject = 2, kSourceAsset = 3, kBuiltInAsset = 4 };
+
+	class PatchItem : IEquatable<PatchItem>
+	{
+		public readonly string source;
+		public readonly GlobalObjectId gid;
+		public readonly Object obj;
+
+		public PatchItem(string source, GlobalObjectId gid)
+			: this(source, gid, null)
+		{
+		}
+
+		public PatchItem(string source, GlobalObjectId gid, Object obj)
+		{
+			this.source = source;
+			this.gid = gid;
+			this.obj = obj;
+		}
+
+		public override bool Equals(object other)
+		{
+			return other is PatchItem l && Equals(l);
+		}
+
+		public override int GetHashCode()
+		{
+			return gid.GetHashCode();
+		}
+
+		public bool Equals(PatchItem other)
+		{
+			return string.Equals(this.gid.ToString(), other.gid.ToString(), StringComparison.Ordinal);
 		}
 	}
 }
