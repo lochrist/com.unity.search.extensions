@@ -14,13 +14,13 @@ public static class DocGen
 		public string category;
 		public string filename;
 		public string path;
-		public SearchQuery query;
+		public SearchQueryAsset query;
 	}
 
 	[MenuItem("Tools/Print Query Doc Markdown", false, 100000)]
 	static void PrintSearchQueryDoc()
 	{
-		var queries = SearchQuery.savedQueries;
+		var queries = SearchQueryAsset.savedQueries;
 		var queryCategories = ExtractCategories(queries);
 		var report = GenerateMarkdown(queryCategories);
 		Debug.Log(report);
@@ -29,13 +29,13 @@ public static class DocGen
 	[MenuItem("Tools/Write Query Doc Markdown", false, 100000)]
 	static void GenerateSearchQueryDoc()
 	{
-		var queries = SearchQuery.savedQueries;
+		var queries = SearchQueryAsset.savedQueries;
 		var queryCategories = ExtractCategories(queries);
 		var report = GenerateMarkdown(queryCategories);
 		File.WriteAllText("Packages/com.unity.search.extensions/Documentation~/queries.md", report);
 	}
 
-	static Dictionary<string, List<QueryDescriptor>> ExtractCategories(IEnumerable<SearchQuery> queries)
+	static Dictionary<string, List<QueryDescriptor>> ExtractCategories(IEnumerable<SearchQueryAsset> queries)
 	{
 		var queryCategories = new Dictionary<string, List<QueryDescriptor>>();
 		foreach (var query in queries)

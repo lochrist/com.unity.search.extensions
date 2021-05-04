@@ -16,13 +16,13 @@ namespace UnityEditor.Search.Collections
             objects = new List<UnityEngine.Object>();
         }
 
-        public SearchCollection(SearchQuery searchQuery)
+        public SearchCollection(SearchQueryAsset searchQuery)
             : this()
         {
             query = searchQuery != null ? searchQuery : throw new ArgumentNullException(nameof(searchQuery));
         }
 
-        public SearchQuery query;
+        public SearchQueryAsset query;
         public List<UnityEngine.Object> objects;
         #if USE_SEARCH_TABLE
         public Color color;

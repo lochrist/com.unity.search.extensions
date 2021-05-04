@@ -81,7 +81,7 @@ namespace UnityEditor.Search.Collections
             var collectionPaths = EditorPrefs.GetString("SearchCollections", "")
                 .Split(new [] { ";;;" }, StringSplitOptions.RemoveEmptyEntries);
             var collection = collectionPaths
-                .Select(p => AssetDatabase.LoadAssetAtPath<SearchQuery>(p))
+                .Select(p => AssetDatabase.LoadAssetAtPath<SearchQueryAsset>(p))
                 .Where(p => p)
                 .Select(sq => new SearchCollection(sq));
             return new List<SearchCollection>(collection);
@@ -143,7 +143,7 @@ namespace UnityEditor.Search.Collections
 
 		private void OnObjectSelectorClosed(UnityEngine.Object obj)
 		{
-			if (obj is SearchQuery searchQuery)
+			if (obj is SearchQueryAsset searchQuery)
 				m_TreeView.Add(new SearchCollection(searchQuery));
 		}
 

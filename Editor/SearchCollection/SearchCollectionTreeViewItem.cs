@@ -61,7 +61,7 @@ namespace UnityEditor.Search.Collections
 
         public override void Open()
         {
-            SearchQuery.Open(m_Collection.query.GetInstanceID());
+			SearchQueryAsset.Open(m_Collection.query.GetInstanceID());
         }
 
         public override bool CanStartDrag()
