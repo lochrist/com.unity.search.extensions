@@ -1,4 +1,4 @@
-#if USE_SEARCH_TABLE
+#if DEPENDS_ON_INTERNAL_APIS
 using System;
 using System.Collections.Generic;
 using System.Linq;

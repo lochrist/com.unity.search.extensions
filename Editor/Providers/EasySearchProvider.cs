@@ -95,7 +95,7 @@ class EasySearchProvider<T> : SearchProvider
         toObject = ToObject;
 
         m_QueryEngine = new QueryEngine<T>();
-        m_QueryEngine.SetSearchDataCallback(SearchWords, s => Utils.FastToLower(s), StringComparison.Ordinal);
+        m_QueryEngine.SetSearchDataCallback(SearchWords, s => s.ToLowerInvariant(), StringComparison.Ordinal);
         SearchValue.SetupEngine(m_QueryEngine);
 
         var dataType = typeof(T);
@@ -287,7 +287,7 @@ class EasySearchProvider<T> : SearchProvider
 
     string FetchDescription(SearchItem item, SearchContext context)
     {
-        if (item.options.HasAny(SearchItemOptions.Compacted) || m_Options.HasAny(EasyOptions.DescriptionSameAsLabel))
+        if ((item.options & SearchItemOptions.Compacted) != 0 || m_Options.HasAny(EasyOptions.DescriptionSameAsLabel))
             return item.GetLabel(context);
 
         if (m_Options.HasAny(EasyOptions.DisplayFilterValueInDescription))
@@ -400,7 +400,7 @@ class EasySearchProvider<T> : SearchProvider
                 var p = so.FindProperty(propertyPath);
                 if (p == null)
                     return SearchValue.invalid;
-                return SceneQueryEngine.ConvertPropertyValue(p);
+                return SearchValue.ConvertPropertyValue(p);
             }
         }
 

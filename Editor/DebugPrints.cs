@@ -6,20 +6,6 @@ using System.Linq;
 
 static class DebugPrints
 {
-	[MenuItem("Search/Print Stats")]
-	internal static void PrintInfo()
-	{
-		SearchMonitor.PrintInfo();
-	}
-
-	[MenuItem("Search/Reset Databases")]
-	static void ResetDBs()
-	{
-		SearchMonitor.Reset();
-		SearchMonitor.PrintInfo();
-		SearchService.RefreshWindows();
-	}
-
 	[MenuItem("Search/Tests/Request Text Async")]
 	public static void RequestTextAsync()
 	{

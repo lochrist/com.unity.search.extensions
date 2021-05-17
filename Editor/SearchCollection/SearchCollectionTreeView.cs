@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -39,14 +40,14 @@ namespace UnityEditor.Search.Collections
         {
             if (args.item is SearchCollectionTreeViewItem ctvi)
             {
-                #if USE_SEARCH_TABLE
+#if USE_SEARCH_TABLE
 				var c = ctvi.collection.color;
                 if (Event.current.type == EventType.Repaint && c.a != 0f)
                 {
                     
                     GUI.DrawTexture(args.rowRect, EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(c.r, c.g, c.b, 1.0f), 0f, 0f);
                 }
-                #endif
+#endif
 
                 var buttonRect = args.rowRect;
                 buttonRect.xMin = buttonRect.xMax - 24f;
@@ -167,3 +168,4 @@ namespace UnityEditor.Search.Collections
         }
     }
 }
+#endif

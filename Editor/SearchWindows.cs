@@ -13,6 +13,6 @@ static class SearchWindows
 	{
 		var searchContext = SearchService.CreateContext(string.Empty);
 		var viewArgs = new SearchViewState(searchContext, SearchViewFlags.CompactView | flags) { title = flags.ToString() };
-		QuickSearch.Create(viewArgs).Show();
+		SearchService.ShowWindow(viewArgs);
 	}
 }

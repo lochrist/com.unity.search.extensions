@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 using System.Collections.Generic;
 
 namespace UnityEditor.Search.Collections
@@ -12,3 +13,4 @@ namespace UnityEditor.Search.Collections
         void AddCollectionMenus(GenericMenu menu);
     }
 }
+#endif

@@ -26,11 +26,11 @@ static class CreateIndex
 			}, _ =>
 			{
 				// IMPORTANT: Notify the system that the search index can be disposed by calling finished()
-				EditorApplication.CallDelayed(() =>
+				EditorApplication.delayCall += () =>
 				{
 					Debug.Log($"Project upgrade finished");
 					finished();
-				}, 3d);
+				};
 			});
 		}
 
@@ -59,7 +59,7 @@ static class CreateIndex
 		EditorUtility.DisplayProgressBar(title, "Creating search index...", -1f);
 
 		// Write search index manifest
-		var indexPath = AssetDatabase.GetUniquePathNameAtSelectedPath($"{name}.index");
+		var indexPath = AssetDatabase.GenerateUniqueAssetPath($"{name}.index");
 		System.IO.File.WriteAllText(indexPath,
 			@"{
 				""roots"": [""Assets""],

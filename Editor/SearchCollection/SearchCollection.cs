@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,3 +32,4 @@ namespace UnityEditor.Search.Collections
         [NonSerialized] public HashSet<SearchItem> items;
     }
 }
+#endif

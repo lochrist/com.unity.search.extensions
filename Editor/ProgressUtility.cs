@@ -15,8 +15,8 @@ public static class ProgressUtility
         var progressId = Start(name, description, options, parentId);
         s_Tasks.Add(new Task { id = progressId, handler = taskHandler, userData = userData, iterators = new Stack<IEnumerator>() });
 
-        EditorApplication.tick -= RunTasks;
-        EditorApplication.tick += RunTasks;
+        EditorApplication.update -= RunTasks;
+        EditorApplication.update += RunTasks;
 
         return progressId;
     }
@@ -98,7 +98,7 @@ public static class ProgressUtility
         }
 
         if (s_Tasks.Count == 0)
-            EditorApplication.tick -= RunTasks;
+            EditorApplication.update -= RunTasks;
     }
 
     public class TaskReport

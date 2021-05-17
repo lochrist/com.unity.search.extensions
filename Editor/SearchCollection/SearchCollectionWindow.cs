@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 // TODO:
 // 1- Add a new flags to saved search query to mark them as collection.
 //   a. Only load search query asset marked as collections.
@@ -184,3 +185,4 @@ namespace UnityEditor.Search.Collections
         }
     }
 }
+#endif

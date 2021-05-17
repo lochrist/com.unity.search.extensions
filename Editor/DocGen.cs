@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
@@ -107,3 +108,4 @@ public static class DocGen
 		return str.ToString();
 	}
 }
+#endif

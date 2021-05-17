@@ -55,7 +55,7 @@ static class EasySearchProviderExample
 
         static string FetchShaderSource(Shader shader, SearchItemOptions options)
         {
-            if (options.HasAny(SearchItemOptions.FullDescription))
+            if ((options & SearchItemOptions.FullDescription) != 0)
                 return ReadSource(shader) ?? shader.ToString();
             return AssetDatabase.GetAssetPath(shader);
         }
@@ -93,7 +93,7 @@ static class EasySearchProviderExample
             _ => System.IO.Directory.EnumerateDirectories("Assets", "*", System.IO.SearchOption.AllDirectories).Select(d => d.Replace("\\", "/")))
             .SetThumbnailHandler(dir => folderIcon)
             .AddAction("open", dir => EditorUtility.RevealInFinder(dir))
-            .AddAction("select", dir => Utils.SelectAssetFromPath(dir, true))
+            .AddAction("select", dir => Selection.activeObject =AssetDatabase.LoadMainAssetAtPath(dir))
             .AddOption(EasyOptions.DescriptionSameAsLabel | EasyOptions.SortByName);
     }
 

@@ -1,3 +1,4 @@
+#if DEPENDS_ON_INTERNAL_APIS
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -93,14 +94,14 @@ namespace UnityEditor.Search.Collections
 
             var hashForSearchField = "CollectionsSearchField".GetHashCode();
             var searchFieldControlID = GUIUtility.GetControlID(hashForSearchField, FocusType.Passive, searchTextRect);
-            #if USE_SEARCH_TABLE
+#if USE_SEARCH_TABLE
             searchView.searchText = EditorGUI.ToolbarSearchField(
                 searchFieldControlID,
                 searchTextRect,
                 searchView.searchText,
                 EditorStyles.toolbarSearchField,
                 string.IsNullOrEmpty(searchView.searchText) ? GUIStyle.none : EditorStyles.toolbarSearchFieldCancelButton);
-            #endif
+#endif
 
             DrawButtons(buttonStackRect);
         }
@@ -136,3 +137,4 @@ namespace UnityEditor.Search.Collections
         }
     }
 }
+#endif
