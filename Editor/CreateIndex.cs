@@ -13,7 +13,7 @@ static class CreateIndex
 		void OnSearchIndexCreated(string name, string path, IEnumerable<SearchItem> items, Action finished)
 		{
 			var siObj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
-			Debug.Log($"Search index {name} is ready to be used", siObj);
+			Debug.Log($"Search index {name} (at {path}) is ready to be used", siObj);
 
 			// TODO: Run your query on the temporary index
 			var searchQuery = $"p: a={name} t:Material";
@@ -59,7 +59,7 @@ static class CreateIndex
 		EditorUtility.DisplayProgressBar(title, "Creating search index...", -1f);
 
 		// Write search index manifest
-		var indexPath = AssetDatabase.GenerateUniqueAssetPath($"{name}.index");
+		var indexPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/{name}.index");
 		System.IO.File.WriteAllText(indexPath,
 			@"{
 				""roots"": [""Assets""],
@@ -75,7 +75,7 @@ static class CreateIndex
 			}");
 
 		// Import the search index
-		AssetDatabase.ImportAsset(indexPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.DontDownloadFromCacheServer);
+		AssetDatabase.ImportAsset(indexPath, ImportAssetOptions.DontDownloadFromCacheServer);
 		EditorApplication.delayCall += () =>
 		{
 			// Wait for the index to be finished
