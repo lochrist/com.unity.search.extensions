@@ -73,7 +73,7 @@ static class SearchWalker
 					continue;
 				}
 
-				var assetPath = SearchUtils.GetAssetPath(r);
+				var assetPath = UnityEditor.Search.SearchUtils.GetAssetPath(r);
 				filePaths.Add(assetPath);
 				Progress.Report(progressId, filePaths.Count, request.Count, assetPath);
 			}

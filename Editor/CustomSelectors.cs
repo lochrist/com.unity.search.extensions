@@ -1,11 +1,21 @@
 using UnityEngine;
 using UnityEditor.Search;
 using UnityEditor;
+using UnityEditor.Search.Providers;
 
 static class CustomSelectors
 {
+	[SceneQueryEngineFilter("vertices")]
+	internal static float? FilterMeshRendererMaterials(GameObject go)
+	{
+		var meshFilter = go?.GetComponent<MeshFilter>();
+		if (!meshFilter || !meshFilter.sharedMesh)
+			return null;
+		return meshFilter.sharedMesh.vertexCount;
+	}
+
 	#if USE_SEARCH_TABLE
-	
+
 	[SearchSelector("vertices", provider: "scene")]
 	static object SelectVertices(SearchSelectorArgs args)
 	{
