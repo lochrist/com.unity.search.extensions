@@ -609,9 +609,9 @@ static class DependencyProvider
 
     static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)
     {
-        var sw = new System.Diagnostics.Stopwatch();
-        sw.Start();
-        while (index == null || !index.IsReady())
+		if (index == null)
+			OnEnable();
+        while (!index.IsReady())
             yield return null;
         foreach (var e in index.Search(context.searchQuery.ToLowerInvariant(), context, provider))
         {
