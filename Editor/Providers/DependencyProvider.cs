@@ -1,3 +1,4 @@
+#if USE_DEPENDENCY_PROVIDER
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -620,3 +621,4 @@ static class DependencyProvider
         }
     }
 }
+#endif
