@@ -143,7 +143,17 @@ namespace UnityEditor.Search
             return null;
         }
 
-        public Node BuildGraph(int resourceId, Vector2 offset)
+		public Node Add(int resourceId, Vector2 offset)
+		{
+			// Create root node
+			var node = CreateNode(resourceId, nodes.Count, LinkType.Self, offset);
+
+			// Add root node
+			nodes.Add(node);
+			return node;
+		}
+
+		public Node BuildGraph(int resourceId, Vector2 offset)
         {
             // Create root node
             var rootNode = CreateNode(resourceId, nodes.Count, LinkType.Self, offset);
@@ -196,13 +206,13 @@ namespace UnityEditor.Search
             return false;
         }
 
-        private void AddNodes(Node root, int[] deps, LinkType linkType, ISet<Node> addedNodes)
+        public void AddNodes(Node root, int[] deps, LinkType linkType, ISet<Node> addedNodes)
         {
             Dictionary<string, List<Node>> nmap = new Dictionary<string, List<Node>>();
             foreach (var id in deps)
             {
                 var addedNode = GetOrCreateNode(id, nodes.Count, linkType, root.rect.center);
-				addedNodes.Add(addedNode);
+				addedNodes?.Add(addedNode);
 				nodes.Add(addedNode);
 
                 if (!nmap.ContainsKey(addedNode.typeName))
@@ -235,6 +245,7 @@ namespace UnityEditor.Search
 
         public ISet<Node> ExpandNode(Node node)
         {
+			node.pinned = true;
             var resourceId = node.id;
 			var addedNodes = new HashSet<Node>()/* { node }*/;
 			//addedNodes.UnionWith(GetNeighbors(node.id));

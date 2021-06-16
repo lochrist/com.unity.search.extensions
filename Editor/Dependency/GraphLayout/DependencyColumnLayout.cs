@@ -29,7 +29,7 @@ namespace UnityEditor.Search
             RowPadding = 25f;
         }
 
-        public bool Calculate(Graph graph, IEnumerable<Node> nodes, float deltaTime)
+        public bool Calculate(Graph graph, float deltaTime)
         {
             // Assume m_AssetNode position is fixed and that we position both column around it.
 

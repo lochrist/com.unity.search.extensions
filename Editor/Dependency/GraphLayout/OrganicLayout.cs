@@ -182,13 +182,8 @@ namespace UnityEditor.Search
         /// <summary>
         /// Executes the fast organic layout.
         /// </summary>
-        public bool Calculate(Graph graph, IEnumerable<Node> nodes, float timeStep)
+        public bool Calculate(Graph graph, float timeStep)
         {
-			if (nodes != null)
-			{
-				foreach (var v in graph.nodes.Except(nodes))
-					v.pinned = true;
-			}
 			m_VertexArray = graph.nodes.ToArray();
             int n = m_VertexArray.Length;
 
@@ -304,6 +299,8 @@ namespace UnityEditor.Search
             for (int i = 0; i < m_VertexArray.Length; i++)
             {
                 var vertex = m_VertexArray[i];
+				if (m_Neighbours[i].Length == 0)
+					continue;
                 var geo = vertex.rect;
                 m_CellLocation[i][0] -= geo.width / 2.0;
                 m_CellLocation[i][1] -= geo.height / 2.0;

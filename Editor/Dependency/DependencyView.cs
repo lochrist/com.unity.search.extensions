@@ -20,11 +20,9 @@ namespace UnityEditor.Search
 		private readonly Color kDirectInColor = new Color(146 / 255f, 196 / 255f, 109 / 255f);
 		private readonly Color kDirectOutColor = new Color(83 / 255f, 150 / 255f, 153 / 255f);
 
-		private Node nodeOfInterest;
 		private Graph graph;
 		private DependencyDatabase db;
 		private IGraphLayout graphLayout;
-		[SerializeField] private UnityEngine.Object m_Selection;
 
 		private Node selecteNode = null;
 		private string status = "";
@@ -34,30 +32,60 @@ namespace UnityEditor.Search
 		public DependencyView(ISearchView hostView)
 			: base(hostView)
 		{
-			m_Selection = m_Selection ?? Selection.activeObject;
-
 			if (db == null)
 				db = DependencyManager.Scan();
 
 			graph = new Graph(db) { nodeInitialPositionCallback = GetNodeInitialPosition };
 		}
 
+		private void Import()
+		{
+			graph.edges.Clear();
+			graph.nodes.RemoveAll(n => !n.pinned);
+			zoom = 1f;
+			var npos = pan;
+			int i = 0;
+			var sq = Mathf.RoundToInt(Mathf.Sqrt(items.Count));
+			foreach (var e in items)
+			{
+				var path = SearchUtils.GetAssetPath(e);
+				if (string.IsNullOrEmpty(path))
+					continue;
+
+				int depID = db.FindResourceByName(path);
+				if (depID < 0)
+					continue;
+				var n = graph.FindNode(depID) ?? graph.Add(depID, pan + rect.center);
+				n.pinned = false;
+				n.rect.position = npos;
+				npos.x += n.rect.size.x * 1.5f;
+				i++;
+				if (i > sq)
+				{
+					npos.x = pan.x;
+					npos.y += n.rect.size.y * 1.5f;
+					i = 0;
+				}
+
+				var deps = db.GetResourceDependencies(depID).Where(did => graph.FindNode(did) != null);
+				graph.AddNodes(n, deps.ToArray(), LinkType.DirectIn, null);
+
+				var refs = db.GetResourceReferences(depID).Where(did => graph.FindNode(did) != null);
+				graph.AddNodes(n, refs.ToArray(), LinkType.DirectOut, null);
+			}
+			SetLayout(new OrganicLayout());
+		}
+
+		public override void Refresh(RefreshFlags flags)
+		{
+			if (items.Count < 50)
+				Import();
+		}
+
 		public override void Draw(Rect rect, ICollection<int> selection)
 		{
 			if (db == null || graph == null || graph.nodes == null)
 				return;
-
-			if (nodeOfInterest == null)
-			{
-				var selectedAssetPath = AssetDatabase.GetAssetPath(m_Selection);
-				int selectedResourceID = db.FindResourceByName(selectedAssetPath);
-				if (selectedResourceID < 0)
-					return;
-
-				nodeOfInterest = graph.BuildGraph(selectedResourceID, rect.center);
-				SetLayout(new OrganicLayout());
-				pan = nodeOfInterest.rect.center + this.rect.size + new Vector2(200, 200);
-			}
 
 			var evt = Event.current;
 			DrawView(evt);
@@ -90,13 +118,21 @@ namespace UnityEditor.Search
 				float oldZoom = zoom;
 				zoom = Mathf.Clamp(zoom + zoomDelta, 0.2f, 6.25f);
 
-				var areaMousePos = (e.mousePosition - rect.position) - (rect.center - rect.position);
-				var contentOldMousePos = (areaMousePos / oldZoom) - (pan / oldZoom);
-				var contentMousePos = (areaMousePos / zoom) - (pan / zoom);
-				var mouseDelta = contentMousePos - contentOldMousePos;
+// 				var areaMousePos = (e.mousePosition - rect.position) - (rect.center - rect.position);
+// 				var contentOldMousePos = (areaMousePos / oldZoom) - (pan / oldZoom);
+// 				var contentMousePos = (areaMousePos / zoom) - (pan / zoom);
+// 				var mouseDelta = contentMousePos - contentOldMousePos;
+// 
+// 				pan += mouseDelta * -zoom;
+// 
+				e.Use();
+			}
 
-				pan += mouseDelta * -zoom;
-
+			if (selecteNode != null && e.type == EventType.KeyDown && e.keyCode == KeyCode.Delete)
+			{
+				graph.edges.RemoveAll(e => e.Source == selecteNode || e.Target == selecteNode);
+				graph.nodes.Remove(selecteNode);
+				selecteNode = null;
 				e.Use();
 			}
 		}
@@ -183,8 +219,8 @@ namespace UnityEditor.Search
 			var buttonRect = new Rect(windowRect.width - kRightPadding, windowRect.height - kBottomPadding - 4f, kButtonWidth, kButtonHeight);
 			if (!node.expanded && GUI.Button(buttonRect, "+"))
 			{
-				var expandedNodes = graph.ExpandNode(node);
-				graphLayout.Calculate(graph, expandedNodes, 0.05f);
+				/*var expandedNodes = */graph.ExpandNode(node);
+				graphLayout.Calculate(graph, 0.05f);
 				handled = true;
 			}
 
@@ -215,9 +251,9 @@ namespace UnityEditor.Search
 
 		private void DrawGraph(Event evt)
 		{
-			if (graphLayout.Animated)
+			if (graphLayout?.Animated ?? false)
 			{
-				if (graphLayout.Calculate(graph, null, 0.05f))
+				if (graphLayout.Calculate(graph, 0.05f))
 					searchView.Repaint();
 			}
 
@@ -257,10 +293,10 @@ namespace UnityEditor.Search
 			if (evt.type == EventType.MouseDown && evt.button == 1)
 			{
 				var menu = new GenericMenu();
+				menu.AddItem(new GUIContent("Import"), false, () => Import());
 				menu.AddItem(new GUIContent("Relayout"), false, () => Relayout());
 				menu.AddSeparator("");
 
-				menu.AddItem(new GUIContent("Layout/Column"), false, () => SetLayout(CreateColumnLayout()));
 				menu.AddItem(new GUIContent("Layout/Springs"), false, () => SetLayout(new ForceDirectedLayout(graph)));
 				menu.AddItem(new GUIContent("Layout/Organic"), false, () => SetLayout(new OrganicLayout()));
 				menu.ShowAsContext();
@@ -270,25 +306,18 @@ namespace UnityEditor.Search
 
 		private void Relayout()
 		{
-			foreach (var v in graph.nodes)
-				v.pinned = false;
-			nodeOfInterest.pinned = true;
-			graphLayout.Calculate(graph, null, 0.05f);
+// 			foreach (var v in graph.nodes)
+// 				v.pinned = false;
+			SetLayout(graphLayout);
 		}
 
 		void SetLayout(IGraphLayout layout)
 		{
 			graphLayout = layout;
-			graphLayout.Calculate(graph, null, 0.05f);
+			graphLayout.Calculate(graph, 0.05f);
+			if (graph.nodes.Count > 0)
+				pan = -graph.nodes[0].rect.center + rect.center;
 			searchView.Repaint();
-		}
-
-		IGraphLayout CreateColumnLayout()
-		{
-			return new DependencyColumnLayout(nodeOfInterest,
-					graph.GetDependencies(nodeOfInterest.id),
-					graph.GetReferences(nodeOfInterest.id)
-					);
 		}
 	}
 }
