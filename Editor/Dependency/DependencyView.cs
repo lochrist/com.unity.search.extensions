@@ -10,8 +10,7 @@ namespace UnityEditor.Search
 	[SearchResultView, Icon("UnityEditor.FindDependencies")]
 	class DependencyView : ResultView
 	{
-		private const float kInitialPosOffset = 10500.0f;
-		private const float kEditorWindowTabHeight = 21.0f;
+		private const float kInitialPosOffset = -0;
 		private const float kNodeSize = 100.0f;
 		private const float kHalfNodeSize = kNodeSize / 2.0f;
 		private const float kPreviewSize = 64.0f;
@@ -20,10 +19,6 @@ namespace UnityEditor.Search
 		private readonly Color kWeakOutColor = new Color(120 / 255f, 134f / 255f, 150f / 255f);
 		private readonly Color kDirectInColor = new Color(146 / 255f, 196 / 255f, 109 / 255f);
 		private readonly Color kDirectOutColor = new Color(83 / 255f, 150 / 255f, 153 / 255f);
-
-		private readonly System.Timers.Timer timer = new System.Timers.Timer(30);
-		private readonly Rect screenRect = new Rect(0.0f, kEditorWindowTabHeight, Screen.width, Screen.height);
-		private readonly Matrix4x4 translation = Matrix4x4.TRS(new Vector3(0, 0, 0), Quaternion.identity, Vector3.one);
 
 		private Node nodeOfInterest;
 		private Graph graph;
@@ -34,7 +29,7 @@ namespace UnityEditor.Search
 		private Node selecteNode = null;
 		private string status = "";
 		private float zoom = 1.0f;
-		private Rect pan = new Rect(-kInitialPosOffset, -kInitialPosOffset, 1000000, 1000000);
+		private Vector2 pan = new Vector2(kInitialPosOffset, kInitialPosOffset);
 
 		public DependencyView(ISearchView hostView)
 			: base(hostView)
@@ -44,65 +39,36 @@ namespace UnityEditor.Search
 			if (db == null)
 				db = DependencyManager.Scan();
 
-			var selectedAssetPath = AssetDatabase.GetAssetPath(m_Selection);
-			int selectedResourceID = db.FindResourceByName(selectedAssetPath);
-			if (selectedResourceID < 0)
-				return;
-
-			graph = new Graph(db)
-			{
-				nodeInitialPositionCallback = GetNodeInitialPosition
-			};
-			var position = ((EditorWindow)hostView).position;
-			var cx = -pan.x + position.width / 2;
-			var cy = -pan.y + position.height / 2;
-			nodeOfInterest = graph.BuildGraph(selectedResourceID, new Vector2(cx, cy));
-			pan.x = Math.Min(0, -nodeOfInterest.rect.x + position.width / 2);
-			pan.y = Math.Min(0, -nodeOfInterest.rect.y + position.height / 2);
-
+			graph = new Graph(db) { nodeInitialPositionCallback = GetNodeInitialPosition };
 			graphLayout = new ForceDirectedLayout(graph);
-
-			timer.Interval = 30;
-			timer.Elapsed += (sender, args) => searchView.Repaint();
-			timer.Start();
 		}
 
 		public override void Draw(Rect rect, ICollection<int> selection)
 		{
-			if (db == null || graph == null || graph.nodes == null || graph.nodes.Count == 0)
+			if (db == null || graph == null || graph.nodes == null)
 				return;
 
-			// Clear internal group, we will set our own.
-			GUI.EndGroup();
+			if (nodeOfInterest == null)
+			{
+				var selectedAssetPath = AssetDatabase.GetAssetPath(m_Selection);
+				int selectedResourceID = db.FindResourceByName(selectedAssetPath);
+				if (selectedResourceID < 0)
+					return;
 
-			DrawView();
-			DrawHUD();
-			HandleEvent(Event.current);
+				nodeOfInterest = graph.BuildGraph(selectedResourceID, rect.center);
+			}
 
-			// Restore internal group
-			GUI.BeginGroup(rect);
-		}
-
-		public override int GetDisplayItemCount()
-		{
-			return 0;
-		}
-
-		protected override int GetFirstVisibleItemIndex()
-		{
-			return -1;
-		}
-
-		protected override int GetLastVisibleItemIndex()
-		{
-			return -1;
+			var evt = Event.current;
+			DrawView(evt);
+			DrawHUD(evt);
+			HandleEvent(evt);
 		}
 
 		private Rect GetNodeInitialPosition(Graph graphModel, Vector2 offset)
 		{
 			return new Rect(
 				offset.x + Random.Range(-rect.width / 2, rect.width / 2),
-				offset.y + Random.Range(-rect.height / 2, rect.height / 2) + kEditorWindowTabHeight,
+				offset.y + Random.Range(-rect.height / 2, rect.height / 2),
 				kNodeSize, kNodeSize);
 		}
 
@@ -110,8 +76,8 @@ namespace UnityEditor.Search
 		{
 			if (e.type == EventType.MouseDrag)
 			{
-				pan.x = Math.Min(0, pan.x + e.delta.x / zoom);
-				pan.y = Math.Min(0, pan.y + e.delta.y / zoom);
+				pan.x += e.delta.x / zoom;
+				pan.y += e.delta.y / zoom;
 				e.Use();
 			}
 			else if (e.type == EventType.ScrollWheel)
@@ -119,12 +85,22 @@ namespace UnityEditor.Search
 				var zoomDelta = 0.1f;
 				float delta = e.delta.x + e.delta.y;
 				zoomDelta = delta < 0 ? zoomDelta : -zoomDelta;
+
+				float oldZoom = zoom;
 				zoom = Mathf.Clamp(zoom + zoomDelta, 0.5f, 2.25f);
+
+				var areaMousePos = (e.mousePosition - rect.position) - (rect.center - rect.position);
+				var contentOldMousePos = (areaMousePos / oldZoom) - (pan / oldZoom);
+				var contentMousePos = (areaMousePos / zoom) - (pan / zoom);
+				var mouseDelta = contentMousePos - contentOldMousePos;
+
+				pan += mouseDelta;
+
 				e.Use();
 			}
 		}
 
-		private Color GetLinkColor(LinkType linkType)
+		private Color GetLinkColor(in LinkType linkType)
 		{
 			switch (linkType)
 			{
@@ -143,9 +119,15 @@ namespace UnityEditor.Search
 			return Color.red;
 		}
 
-		private void DrawEdge(Edge edge, Vector2 from, Vector2 to)
+		private void DrawEdge(in Rect viewportRect, in Edge edge, in Vector2 from, in Vector2 to)
 		{
 			if (edge.hidden)
+				return;
+			var edgeScale = to - from;
+			var edgeBounds = new Rect(
+				Mathf.Min(from.x, to.x) - pan.x, Mathf.Min(from.y, to.y) - pan.y,
+				Mathf.Abs(edgeScale.x), Mathf.Abs(edgeScale.y));
+			if (!edgeBounds.Overlaps(viewportRect))
 				return;
 			var edgeColor = GetLinkColor(edge.linkType);
 			bool selected = selecteNode == edge.Source || selecteNode == edge.Target;
@@ -157,139 +139,130 @@ namespace UnityEditor.Search
 				edgeColor.b = Math.Min(edgeColor.b * kHightlightFactor, 1.0f);
 			}
 			Handles.DrawBezier(from, to,
-				new Vector2(edge.Source.rect.xMax + kHalfNodeSize, edge.Source.rect.center.y),
-				new Vector2(edge.Target.rect.xMin - kHalfNodeSize, edge.Target.rect.center.y),
+				new Vector2(edge.Source.rect.xMax + kHalfNodeSize, edge.Source.rect.center.y) + pan,
+				new Vector2(edge.Target.rect.xMin - kHalfNodeSize, edge.Target.rect.center.y) + pan,
 				edgeColor, null, 5f);
 		}
 
-		protected void DrawNode(Node node, Vector2 iPosition)
+		protected void DrawNode(Event evt, in Rect viewportRect, Node node)
 		{
-			node.rect = GUI.Window(node.index, node.rect, nodeId =>
+			var windowRect = new Rect(node.rect.position + pan, node.rect.size);
+			if (!node.rect.Overlaps(viewportRect))
+				return;
+
+			node.rect = GUI.Window(node.index, windowRect, _ => DrawNodeWindow(windowRect, evt, node), node.title);
+
+			if (node.rect.Contains(evt.mousePosition))
 			{
-				bool handled = false;
-				var windowRect = node.rect;
-				const float kPreviewOffsetY = 10.0f;
+				if (string.IsNullOrEmpty(status))
+					searchView.Repaint();
+				status = node.tooltip;
+			}
+
+			node.rect.x -= pan.x;
+			node.rect.y -= pan.y;
+		}
+
+		private void DrawNodeWindow(in Rect windowRect, Event evt, in Node node)
+		{
+			bool handled = false;
+
+			const float kPreviewOffsetY = 10.0f;
+			if (evt.type == EventType.Repaint)
+			{
 				var previewOffset = (kNodeSize - kPreviewSize) / 2.0f;
 				GUI.DrawTexture(new Rect(
 						previewOffset, previewOffset + kPreviewOffsetY,
 						kPreviewSize, kPreviewSize), node.preview ?? EditorGUIUtility.FindTexture(typeof(DefaultAsset)));
-
-				const float kHeightDiff = 4.0f;
-				const float kButtonWidth = 16.0f, kButtonHeight = kButtonWidth - kHeightDiff;
-				const float kRightPadding = 20.0f, kBottomPadding = kRightPadding - kHeightDiff;
-				var buttonRect = new Rect(windowRect.width - kRightPadding, windowRect.height - kBottomPadding, kButtonWidth, kButtonHeight);
-				if (!node.expanded)
-				{
-					if (GUI.Button(buttonRect, "+"))
-					{
-						graph.ExpandNode(node);
-						handled = true;
-					}
-				}
-
-				buttonRect = new Rect(windowRect.width - kRightPadding, kBottomPadding, 20, 20);
-				bool hasChanged = node.pinned;
-				node.pinned = EditorGUI.Toggle(buttonRect, node.pinned);
-				handled |= hasChanged != node.pinned;
-
-				if (!handled && Event.current.type == EventType.MouseDown)
-				{
-					if (Event.current.button == 0)
-					{
-						var selectedObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(node.name);
-						if (Event.current.clickCount == 1)
-						{
-							selecteNode = node;
-							EditorGUIUtility.PingObject(selectedObject.GetInstanceID());
-						}
-						else if (Event.current.clickCount == 2)
-						{
-							Selection.activeObject = selectedObject;
-							//ShowDependencyViewer();
-						}
-					}
-				}
-				GUI.DragWindow();
-			}, node.title);
-
-			node.rect.x = Math.Max(0, node.rect.x);
-			node.rect.y = Math.Max(0, node.rect.y);
-
-			if (node.rect.Contains(Event.current.mousePosition))
-			{
-				if (String.IsNullOrEmpty(status))
-					searchView.Repaint();
-				status = node.tooltip;
 			}
+
+			const float kHeightDiff = 2.0f;
+			const float kButtonWidth = 16.0f, kButtonHeight = 18f;
+			const float kRightPadding = 17.0f, kBottomPadding = kRightPadding - kHeightDiff;
+			var buttonRect = new Rect(windowRect.width - kRightPadding, windowRect.height - kBottomPadding - 4f, kButtonWidth, kButtonHeight);
+			if (!node.expanded && GUI.Button(buttonRect, "+"))
+			{
+				graph.ExpandNode(node);
+				handled = true;
+			}
+
+			buttonRect = new Rect(windowRect.width - kRightPadding, kBottomPadding, 23, 26);
+			bool hasChanged = node.pinned;
+			node.pinned = EditorGUI.Toggle(buttonRect, node.pinned);
+			handled |= hasChanged != node.pinned;
+
+			if (!handled && evt.type == EventType.MouseDown)
+			{
+				if (evt.button == 0)
+				{
+					var selectedObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(node.name);
+					if (evt.clickCount == 1)
+					{
+						selecteNode = node;
+						EditorGUIUtility.PingObject(selectedObject.GetInstanceID());
+					}
+					else if (evt.clickCount == 2)
+					{
+						Selection.activeObject = selectedObject;
+						//ShowDependencyViewer();
+					}
+				}
+			}
+			GUI.DragWindow();
 		}
 
-		private void DrawGraph()
+		private void DrawGraph(Event evt)
 		{
 			if (graphLayout.Animated)
 			{
-				const float kTimeStep = 0.05f;
-				graphLayout.Calculate(graph, kTimeStep);
+				if (graphLayout.Calculate(graph, 0.05f))
+					searchView.Repaint();
 			}
 
-			// Reset status message, it will be set again when hovering a node.
-			status = "";
-
-			Handles.BeginGUI();
-			graph.edges.ForEach(edge => DrawEdge(edge, edge.Source.rect.center, edge.Target.rect.center));
-			Handles.EndGUI();
-
-			((EditorWindow)searchView).BeginWindows();
-			graph.nodes.ForEach(node => DrawNode(node, node.rect.center));
-			((EditorWindow)searchView).EndWindows();
-		}
-
-		private void DrawView()
-		{
-			// Setup view
-			Rect clippedArea = pan.ScaleSizeBy(1.0f / zoom, new Vector2(pan.x, pan.y + kEditorWindowTabHeight));
-			GUI.BeginGroup(clippedArea);
-			var originalGUIMatrix = GUI.matrix;
-			Matrix4x4 scale = Matrix4x4.Scale(new Vector3(zoom, zoom, zoom));
-			GUI.matrix = translation * scale * translation.inverse;
-
-			// Render view
-			DrawGraph();
-
-			// Restore view
-			GUI.matrix = originalGUIMatrix;
-			GUI.EndGroup();
-		}
-
-		private void DrawHUD()
-		{
-			if (!String.IsNullOrEmpty(status))
-				GUI.Label(new Rect(10, rect.height - 10, rect.width, 20), status);
-
-			if (Event.current.type == EventType.MouseDown && Event.current.button == 1)
+			var viewportRect = new Rect(-pan.x, -pan.y, rect.width, rect.height).ScaleSizeBy(1f / zoom, -pan);
+			if (evt.type == EventType.Layout)
 			{
-				GenericMenu menu = new GenericMenu();
-				menu.AddItem(new GUIContent("Layout/Relayout"), false, () =>
-				{
-					graphLayout.Calculate(graph, 0.05f);
-				});
+				// Reset status message, it will be set again when hovering a node.
+				status = "";
+			}
+			else if (evt.type == EventType.Repaint)
+			{
+				Handles.BeginGUI();
+				foreach (var edge in graph.edges)
+					DrawEdge(viewportRect, edge, edge.Source.rect.center + pan, edge.Target.rect.center + pan);
+				Handles.EndGUI();
+			}
+
+			var searchWindow = (EditorWindow)searchView;
+			searchWindow.BeginWindows();
+			foreach (var node in graph.nodes)
+				DrawNode(evt, viewportRect, node);
+			searchWindow.EndWindows();
+		}
+
+		private void DrawView(Event evt)
+		{
+			EditorZoomArea.Begin(zoom, rect);
+			DrawGraph(evt);
+			EditorZoomArea.End();
+		}
+
+		private void DrawHUD(Event evt)
+		{
+			if (!string.IsNullOrEmpty(status))
+				GUI.Label(new Rect(4, rect.yMax - 20, rect.width, 20), status);
+
+			if (evt.type == EventType.MouseDown && evt.button == 1)
+			{
+				var menu = new GenericMenu();
+				menu.AddItem(new GUIContent("Layout/Relayout"), false, () => graphLayout.Calculate(graph, 0.05f));
 				menu.AddSeparator("");
 
-				menu.AddItem(new GUIContent("Layout/Column"), false, () =>
-				{
-					graphLayout = CreateColumnLayout();
-				});
-				menu.AddItem(new GUIContent("Layout/Springs"), false, () =>
-				{
-					graphLayout = new ForceDirectedLayout(graph);
-					timer.Start();
-				});
-				timer.Stop();
-				menu.AddItem(new GUIContent("Layout/Organic"), false, () =>
-				{
-					SetLayout(new OrganicLayout());
-				});
-
+				menu.AddItem(new GUIContent("Layout/Column"), false, () => SetLayout(CreateColumnLayout()));
+				menu.AddItem(new GUIContent("Layout/Springs"), false, () => SetLayout(new ForceDirectedLayout(graph)));
+				menu.AddItem(new GUIContent("Layout/Organic"), false, () => SetLayout(new OrganicLayout()));
 				menu.ShowAsContext();
+				evt.Use();
 			}
 		}
 
@@ -297,20 +270,15 @@ namespace UnityEditor.Search
 		{
 			graphLayout = layout;
 			graphLayout.Calculate(graph, 0.05f);
-			if (layout.Animated)
-				timer.Start();
-			else
-				timer.Stop();
+			searchView.Repaint();
 		}
 
 		IGraphLayout CreateColumnLayout()
 		{
-			var layout = new DependencyColumnLayout(nodeOfInterest,
+			return new DependencyColumnLayout(nodeOfInterest,
 					graph.GetDependencies(nodeOfInterest.id),
 					graph.GetReferences(nodeOfInterest.id)
 					);
-			layout.Calculate(graph, 0.05f);
-			return layout;
 		}
 	}
 }

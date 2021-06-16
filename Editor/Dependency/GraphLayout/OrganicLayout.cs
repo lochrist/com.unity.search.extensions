@@ -182,7 +182,7 @@ namespace UnityEditor.Search
         /// <summary>
         /// Executes the fast organic layout.
         /// </summary>
-        public void Calculate(Graph graph, float timeStep)
+        public bool Calculate(Graph graph, float timeStep)
         {
             m_VertexArray = graph.nodes.ToArray();
             int n = m_VertexArray.Length;
@@ -278,9 +278,7 @@ namespace UnityEditor.Search
             for (m_Iteration = 0; m_Iteration < m_MaxIterations; m_Iteration++)
             {
                 if (!m_AllowedToRun)
-                {
-                    return;
-                }
+                    return false;
 
                 // Calculate repulsive forces on all vertices
                 CalcRepulsion();
@@ -328,6 +326,8 @@ namespace UnityEditor.Search
                     vertex.rect = geo;
                 }
             }
+
+			return false;
         }
 
         /// <summary>

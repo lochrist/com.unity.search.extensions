@@ -29,7 +29,7 @@ namespace UnityEditor.Search
             RowPadding = 25f;
         }
 
-        public void Calculate(Graph graph, float deltaTime)
+        public bool Calculate(Graph graph, float deltaTime)
         {
             // Assume m_AssetNode position is fixed and that we position both column around it.
 
@@ -67,6 +67,8 @@ namespace UnityEditor.Search
                 depNode.SetPosition(x, y);
                 y += depNode.rect.height + RowPadding;
             }
+
+			return false;
         }
     }
 }
