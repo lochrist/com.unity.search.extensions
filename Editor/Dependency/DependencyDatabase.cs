@@ -165,6 +165,7 @@ namespace UnityEditor.Search
 				return id;
 
 			var nextId = m_NextId++;
+			m_IdByPath[path] = nextId;
 			var di = new DependencyItem(nextId, path);
 			m_Items[di.id] = di;
 			return di.id;

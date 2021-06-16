@@ -196,13 +196,14 @@ namespace UnityEditor.Search
             return false;
         }
 
-        private void AddNodes(Node root, int[] deps, LinkType linkType)
+        private void AddNodes(Node root, int[] deps, LinkType linkType, ISet<Node> addedNodes)
         {
             Dictionary<string, List<Node>> nmap = new Dictionary<string, List<Node>>();
             foreach (var id in deps)
             {
                 var addedNode = GetOrCreateNode(id, nodes.Count, linkType, root.rect.center);
-                nodes.Add(addedNode);
+				addedNodes.Add(addedNode);
+				nodes.Add(addedNode);
 
                 if (!nmap.ContainsKey(addedNode.typeName))
                     nmap[addedNode.typeName] = new List<Node>();
@@ -232,14 +233,17 @@ namespace UnityEditor.Search
             }
         }
 
-        public void ExpandNode(Node node)
+        public ISet<Node> ExpandNode(Node node)
         {
             var resourceId = node.id;
-            AddNodes(node, db.GetResourceDependencies(resourceId), LinkType.DirectOut);
-            AddNodes(node, db.GetResourceReferences(resourceId), LinkType.DirectIn);
-            AddNodes(node, db.GetWeakDependencies(resourceId), LinkType.WeakOut);
+			var addedNodes = new HashSet<Node>()/* { node }*/;
+			//addedNodes.UnionWith(GetNeighbors(node.id));
+			AddNodes(node, db.GetResourceDependencies(resourceId), LinkType.DirectOut, addedNodes);
+            AddNodes(node, db.GetResourceReferences(resourceId), LinkType.DirectIn, addedNodes);
+            AddNodes(node, db.GetWeakDependencies(resourceId), LinkType.WeakOut, addedNodes);
 
             node.expanded = true;
-        }
+			return addedNodes;
+		}
     }
 }

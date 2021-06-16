@@ -40,7 +40,6 @@ namespace UnityEditor.Search
 				db = DependencyManager.Scan();
 
 			graph = new Graph(db) { nodeInitialPositionCallback = GetNodeInitialPosition };
-			graphLayout = new ForceDirectedLayout(graph);
 		}
 
 		public override void Draw(Rect rect, ICollection<int> selection)
@@ -56,6 +55,8 @@ namespace UnityEditor.Search
 					return;
 
 				nodeOfInterest = graph.BuildGraph(selectedResourceID, rect.center);
+				SetLayout(new OrganicLayout());
+				pan = nodeOfInterest.rect.center + this.rect.size + new Vector2(200, 200);
 			}
 
 			var evt = Event.current;
@@ -87,14 +88,14 @@ namespace UnityEditor.Search
 				zoomDelta = delta < 0 ? zoomDelta : -zoomDelta;
 
 				float oldZoom = zoom;
-				zoom = Mathf.Clamp(zoom + zoomDelta, 0.5f, 2.25f);
+				zoom = Mathf.Clamp(zoom + zoomDelta, 0.2f, 6.25f);
 
 				var areaMousePos = (e.mousePosition - rect.position) - (rect.center - rect.position);
 				var contentOldMousePos = (areaMousePos / oldZoom) - (pan / oldZoom);
 				var contentMousePos = (areaMousePos / zoom) - (pan / zoom);
 				var mouseDelta = contentMousePos - contentOldMousePos;
 
-				pan += mouseDelta;
+				pan += mouseDelta * -zoom;
 
 				e.Use();
 			}
@@ -182,7 +183,8 @@ namespace UnityEditor.Search
 			var buttonRect = new Rect(windowRect.width - kRightPadding, windowRect.height - kBottomPadding - 4f, kButtonWidth, kButtonHeight);
 			if (!node.expanded && GUI.Button(buttonRect, "+"))
 			{
-				graph.ExpandNode(node);
+				var expandedNodes = graph.ExpandNode(node);
+				graphLayout.Calculate(graph, expandedNodes, 0.05f);
 				handled = true;
 			}
 
@@ -196,7 +198,7 @@ namespace UnityEditor.Search
 				if (evt.button == 0)
 				{
 					var selectedObject = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(node.name);
-					if (evt.clickCount == 1)
+					if (evt.clickCount == 1 && selectedObject)
 					{
 						selecteNode = node;
 						EditorGUIUtility.PingObject(selectedObject.GetInstanceID());
@@ -215,7 +217,7 @@ namespace UnityEditor.Search
 		{
 			if (graphLayout.Animated)
 			{
-				if (graphLayout.Calculate(graph, 0.05f))
+				if (graphLayout.Calculate(graph, null, 0.05f))
 					searchView.Repaint();
 			}
 
@@ -255,7 +257,7 @@ namespace UnityEditor.Search
 			if (evt.type == EventType.MouseDown && evt.button == 1)
 			{
 				var menu = new GenericMenu();
-				menu.AddItem(new GUIContent("Layout/Relayout"), false, () => graphLayout.Calculate(graph, 0.05f));
+				menu.AddItem(new GUIContent("Relayout"), false, () => Relayout());
 				menu.AddSeparator("");
 
 				menu.AddItem(new GUIContent("Layout/Column"), false, () => SetLayout(CreateColumnLayout()));
@@ -266,10 +268,18 @@ namespace UnityEditor.Search
 			}
 		}
 
+		private void Relayout()
+		{
+			foreach (var v in graph.nodes)
+				v.pinned = false;
+			nodeOfInterest.pinned = true;
+			graphLayout.Calculate(graph, null, 0.05f);
+		}
+
 		void SetLayout(IGraphLayout layout)
 		{
 			graphLayout = layout;
-			graphLayout.Calculate(graph, 0.05f);
+			graphLayout.Calculate(graph, null, 0.05f);
 			searchView.Repaint();
 		}
 

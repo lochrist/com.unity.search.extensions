@@ -182,9 +182,14 @@ namespace UnityEditor.Search
         /// <summary>
         /// Executes the fast organic layout.
         /// </summary>
-        public bool Calculate(Graph graph, float timeStep)
+        public bool Calculate(Graph graph, IEnumerable<Node> nodes, float timeStep)
         {
-            m_VertexArray = graph.nodes.ToArray();
+			if (nodes != null)
+			{
+				foreach (var v in graph.nodes.Except(nodes))
+					v.pinned = true;
+			}
+			m_VertexArray = graph.nodes.ToArray();
             int n = m_VertexArray.Length;
 
             m_DispX = new double[n];
@@ -205,8 +210,8 @@ namespace UnityEditor.Search
             m_ForceConstantSquared = m_ForceConstant * m_ForceConstant;
 
             // Create a map of vertices first. This is required for the array of
-            // arrays called neighbours which holds, for each vertex, a list of
-            // ints which represents the neighbours cells to that vertex as
+            // arrays called neighbors which holds, for each vertex, a list of
+            // ints which represents the neighbors cells to that vertex as
             // the indices into vertexArray
             for (int i = 0; i < m_VertexArray.Length; i++)
             {
@@ -239,7 +244,7 @@ namespace UnityEditor.Search
                 m_DispY[i] = 0;
                 m_IsMoveable[i] = !m_VertexArray[i].pinned;
 
-                // Get lists of neighbours to all vertices, translate the cells
+                // Get lists of neighbors to all vertices, translate the cells
                 // obtained in indices into vertexArray and store as an array
                 // against the original cell index
                 var cells = graph.GetNeighbors(m_VertexArray[i].id);
@@ -375,17 +380,17 @@ namespace UnityEditor.Search
         /// </summary>
         protected void CalcAttraction()
         {
-            // Check the neighbours of each vertex and calculate the attractive
+            // Check the neighbors of each vertex and calculate the attractive
             // force of the edge connecting them
             for (int i = 0; i < m_VertexArray.Length; i++)
             {
                 for (int k = 0; k < m_Neighbours[i].Length; k++)
                 {
-                    // Get the index of the othe cell in the vertex array
+                    // Get the index of the other cell in the vertex array
                     int j = m_Neighbours[i][k];
 
                     // Do not proceed self-loops
-                    if (i != j)
+                    if (i != j && i < m_CellLocation.Length && j < m_CellLocation.Length)
                     {
                         double xDelta = m_CellLocation[i][0] - m_CellLocation[j][0];
                         double yDelta = m_CellLocation[i][1] - m_CellLocation[j][1];
