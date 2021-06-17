@@ -171,12 +171,4 @@ namespace UnityEditor.Search
 			return di.id;
 		}
     }
-
-    class DependencyManager
-    {
-        public static DependencyDatabase Scan()
-		{
-			return new DependencyDatabase();
-		}
-    }
 }

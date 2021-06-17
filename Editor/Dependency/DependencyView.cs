@@ -32,9 +32,7 @@ namespace UnityEditor.Search
 		public DependencyView(ISearchView hostView)
 			: base(hostView)
 		{
-			if (db == null)
-				db = DependencyManager.Scan();
-
+			db = new DependencyDatabase();
 			graph = new Graph(db) { nodeInitialPositionCallback = GetNodeInitialPosition };
 		}
 
