@@ -4,31 +4,89 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using UnityEditor.Search.Collections;
 using Random = UnityEngine.Random;
 
 namespace UnityEditor.Search
 {
+	[Serializable]
+	class DependencyTreeViewState : TreeViewState, ISearchCollectionView
+	{
+		[SerializeField] List<SearchCollection> m_Collections;
+
+		public DependencyTreeViewState(string filter)
+		{
+			m_Collections = new List<SearchCollection>();
+			m_Collections.Add(new SearchCollection(AssetDatabase.LoadAssetAtPath<SearchQueryAsset>("Assets/Search/Queries/Rocks & Trees.asset")));
+		}
+
+// 		protected override TreeViewItem BuildRoot()
+// 		{
+// 			var id = 1;
+// 			var root = new TreeViewItem { id = id++, depth = -1, displayName = "Root", children = new List<TreeViewItem>() };
+// 
+// 			var obj = Selection.activeObject;
+// 			if (!obj)
+// 				return root;
+// 			var assetPath = AssetDatabase.GetAssetPath(obj);
+// 			if (string.IsNullOrEmpty(assetPath))
+// 				return root;
+// 			var depProvider = SearchService.GetProvider("dep");
+// 			using (var context = SearchService.CreateContext(depProvider, $"{m_Filter}=\"{assetPath}\""))
+// 			using (var request = SearchService.Request(context, SearchFlags.Synchronous))
+// 			{
+// 				foreach (var r in request)
+// 				{
+// 					if (r == null)
+// 						continue;
+// 					var path = AssetDatabase.GUIDToAssetPath(r.id);
+// 					root.AddChild(new TreeViewItem(id++, 0, path));
+// 				}
+// 			}
+// 			return root;
+// 		}
+
+		public string searchText { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+		public ICollection<SearchCollection> collections => m_Collections;
+
+		public void AddCollectionMenus(GenericMenu menu)
+		{
+			throw new NotImplementedException();
+		}
+
+		public void OpenContextualMenu()
+		{
+			throw new NotImplementedException();
+		}
+
+		public void SaveCollections()
+		{
+			throw new NotImplementedException();
+		}
+	}
+
 	class DependencyManager : EditorWindow
 	{
 		SearchField m_SearchField;
-		DependencyTreeview m_DependencyTreeViewIns;
-		DependencyTreeview m_DependencyTreeViewOuts;
+		SearchCollectionTreeView m_DependencyTreeViewIns;
+		SearchCollectionTreeView m_DependencyTreeViewOuts;
 
 		[SerializeField] string m_SearchText;
 		[SerializeField] SplitterInfo m_Splitter;
-		[SerializeField] TreeViewState m_DependencyTreeViewStateIns;
-		[SerializeField] TreeViewState m_DependencyTreeViewStateOuts;
+		[SerializeField] DependencyTreeViewState m_DependencyTreeViewStateIns;
+		[SerializeField] DependencyTreeViewState m_DependencyTreeViewStateOuts;
 
 		internal void OnEnable()
 		{
 			m_SearchField = new SearchField();
 			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_DependencyTreeViewStateIns = m_DependencyTreeViewStateIns ?? new TreeViewState();
-			m_DependencyTreeViewStateOuts = m_DependencyTreeViewStateOuts ?? new TreeViewState();
+			m_DependencyTreeViewStateIns = m_DependencyTreeViewStateIns ?? new DependencyTreeViewState("to");
+			m_DependencyTreeViewStateOuts = m_DependencyTreeViewStateOuts ?? new DependencyTreeViewState("from");
 
-			m_DependencyTreeViewIns = new DependencyTreeview(m_DependencyTreeViewStateIns, "to");
-			m_DependencyTreeViewOuts = new DependencyTreeview(m_DependencyTreeViewStateOuts, "from");
+			m_DependencyTreeViewIns = new SearchCollectionTreeView(m_DependencyTreeViewStateIns, m_DependencyTreeViewStateIns);
+			m_DependencyTreeViewOuts = new SearchCollectionTreeView(m_DependencyTreeViewStateOuts, m_DependencyTreeViewStateOuts);
 			m_Splitter.host = this;
 
 			Selection.selectionChanged += OnSelectionChanged;
@@ -108,175 +166,6 @@ namespace UnityEditor.Search
 			var win = CreateWindow<DependencyManager>();
 			win.position = Utils.GetMainWindowCenteredPosition(new Vector2(1000, 800));
 			win.Show();
-		}
-	}
-
-	class DependencyTreeview : TreeView
-	{
-		public const string userQuery = "User";
-		public const string projectQuery = "Project";
-
-		public static readonly string userTooltip = L10n.Tr("Your saved searches available for all Unity projects on this machine.");
-		public static readonly string projectTooltip = L10n.Tr("Shared searches available for all contributors on this project.");
-
-		static class Styles
-		{
-			public static readonly GUIStyle toolbarButton = new GUIStyle("IN Title")
-			{
-				margin = new RectOffset(0, 0, 0, 0),
-				padding = new RectOffset(0, 0, 0, 0),
-				imagePosition = ImagePosition.ImageOnly,
-				alignment = TextAnchor.MiddleCenter
-			};
-
-			public static readonly GUIStyle categoryLabel = new GUIStyle("IN Title")
-			{
-				richText = true,
-				wordWrap = false,
-				alignment = TextAnchor.MiddleLeft,
-				padding = new RectOffset(16, 0, 3, 0),
-			};
-
-			public static readonly GUIStyle itemLabel = Utils.FromUSS(new GUIStyle()
-			{
-				wordWrap = false,
-				stretchWidth = false,
-				stretchHeight = false,
-				alignment = TextAnchor.MiddleLeft,
-				clipping = TextClipping.Overflow,
-				margin = new RectOffset(0, 0, 0, 0),
-				padding = new RectOffset(0, 0, 0, 0)
-			}, "quick-search-tree-view-item");
-		}
-
-		string m_Filter;
-
-		public bool isRenaming { get; private set; }
-
-		public DependencyTreeview(TreeViewState state, string filter)
-			: base(state)
-		{
-			m_Filter = filter;
-			showBorder = false;
-			showAlternatingRowBackgrounds = false;
-			rowHeight = EditorGUIUtility.singleLineHeight + 4;
-			Reload();
-		}
-
-		public override void OnGUI(Rect rect)
-		{
-			var evt = Event.current;
-
-			// Ignore arrow keys for this tree view, these needs to be handled by the search result view (later)
-			if (!isRenaming && Utils.IsNavigationKey(evt))
-				return;
-
-			base.OnGUI(rect);
-
-			if (evt.type == EventType.MouseDown && evt.button == 0)
-			{
-				// User has clicked in an area where there are no items: unselect.
-				ClearSelection();
-			}
-		}
-
-		public void ClearSelection()
-		{
-			SetSelection(new int[0]);
-		}
-
-		protected override bool DoesItemMatchSearch(TreeViewItem item, string search)
-		{
-			if (item is SearchQueryCategoryTreeViewItem)
-				return false;
-
-			return base.DoesItemMatchSearch(item, search);
-		}
-
-		protected override bool CanMultiSelect(TreeViewItem item)
-		{
-			return false;
-		}
-
-		protected override TreeViewItem BuildRoot()
-		{
-			var id = 1;
-			var root = new TreeViewItem { id = id++, depth = -1, displayName = "Root", children = new List<TreeViewItem>() };
-
-			var obj = Selection.activeObject;
-			if (!obj)
-				return root;
-			var assetPath = AssetDatabase.GetAssetPath(obj);
-			if (string.IsNullOrEmpty(assetPath))
-				return root;
-			var depProvider = SearchService.GetProvider("dep");
-			using (var context = SearchService.CreateContext(depProvider, $"{m_Filter}=\"{assetPath}\""))
-			using (var request = SearchService.Request(context, SearchFlags.Synchronous))
-			{
-				foreach (var r in request)
-				{
-					if (r == null)
-						continue;
-					var path = AssetDatabase.GUIDToAssetPath(r.id);
-					root.AddChild(new TreeViewItem(id++, 0, path));
-				}
-			}
-			return root;
-		}
-
-		protected override void RowGUI(RowGUIArgs args)
-		{
-			var evt = Event.current;
-			if (evt.type == EventType.Repaint)
-			{
-				var itemContent = Utils.GUIContentTemp(args.item.displayName, AssetDatabase.GetCachedIcon(args.item.displayName) as Texture2D);
-				var oldLeftPadding = Styles.itemLabel.padding.left;
-				Styles.itemLabel.padding.left = 4;
-				Styles.itemLabel.Draw(args.rowRect, itemContent, args.rowRect.Contains(Event.current.mousePosition), args.selected, false, false);
-				Styles.itemLabel.padding.left = oldLeftPadding;
-			}
-		}
-
-		protected override void SingleClickedItem(int id)
-		{
-			var tvi = FindItem(id, rootItem);
-			if (tvi != null)
-				Utils.PingAsset(tvi.displayName);
-		}
-
-		protected override void ContextClickedItem(int id)
-		{
-			if (FindItem(id, rootItem) is SearchQueryTreeViewItem stvi)
-				OpenContextualMenu(() => stvi.OpenContextualMenu());
-		}
-
-		protected override bool CanRename(TreeViewItem item)
-		{
-			return ((SearchQueryTreeViewItem)item).CanRename();
-		}
-
-		protected override void RenameEnded(RenameEndedArgs args)
-		{
-			isRenaming = false;
-			if (!args.acceptedRename)
-				return;
-
-			if (FindItem(args.itemID, rootItem) is SearchQueryTreeViewItem item && item.AcceptRename(args.originalName, args.newName))
-			{
-				BuildRows(rootItem);
-			}
-		}
-
-		private static void OpenContextualMenu(Action handler)
-		{
-			handler();
-			Event.current.Use();
-		}
-
-		public void RemoveItem(TreeViewItem item)
-		{
-			item.parent.children.Remove(item);
-			BuildRows(rootItem);
 		}
 	}
 }
