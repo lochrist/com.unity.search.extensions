@@ -7,6 +7,7 @@ using System.Linq;
 
 namespace UnityEditor.Search
 {
+	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
 	class DependencyViewer : EditorWindow
 	{
 		[SearchExpressionEvaluator]
@@ -27,7 +28,6 @@ namespace UnityEditor.Search
 			}
 		}
 
-		SearchField m_SearchField;
 		[SerializeField] string m_SearchText;
 		[SerializeField] SplitterInfo m_Splitter;
 
@@ -35,7 +35,6 @@ namespace UnityEditor.Search
 		[NonSerialized] List<List<DependencyState>> m_History;
 		[NonSerialized] int m_HistoryCursor = -1;
 		[NonSerialized] List<DependencyView> m_Views;
-
 
 		[Serializable]
 		class DependencyState : ISerializationCallbackReceiver
@@ -48,7 +47,7 @@ namespace UnityEditor.Search
 			public SearchContext context => m_Query.viewState.context;
 			public SearchTable tableConfig => m_TableConfig;
 
-			public DependencyState(string name, string filter)
+			public DependencyState(string name, string filter, SearchTable tableConfig)
 			{
 				var selectedPaths = new List<string>();
 				foreach (var obj in UnityEditor.Selection.objects)
@@ -62,7 +61,7 @@ namespace UnityEditor.Search
 
 				m_Name = name;
 				var context = SearchService.CreateContext(new [] { "expression", "dep" }, $"{filter}=[{string.Join(",", selectedPaths)}]");
-				m_TableConfig = new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
+				m_TableConfig = tableConfig ?? new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
 				m_Query = new SearchQuery()
 				{
 					name = name,
@@ -74,7 +73,7 @@ namespace UnityEditor.Search
 
 			private IEnumerable<SearchColumn> GetDefaultColumns()
 			{
-				var defaultDepFlags = SearchColumnFlags.IgnoreSettings | SearchColumnFlags.CanSort;
+				var defaultDepFlags = SearchColumnFlags.CanSort;
 				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
 				yield return new SearchColumn("Type", "type", null, defaultDepFlags);
 				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
@@ -97,13 +96,15 @@ namespace UnityEditor.Search
 			}
 		}
 
-		class DependencyView : ISearchView, ITableView
+		class DependencyView : ITableView
 		{
 			public string filter;
 			public PropertyTable table;
 			public readonly DependencyState state;
 
 			HashSet<SearchItem> m_Items;
+
+			public SearchContext context => state.context;
 
 			public DependencyView(DependencyState state)
 			{
@@ -127,35 +128,6 @@ namespace UnityEditor.Search
 				m_Items.Clear();
 				SearchService.Request(state.context, (c, items) => m_Items.UnionWith(items), _ => BuildTable());
 			}
-
-			// ISearchView
-
-			public SearchSelection selection => throw new NotImplementedException();
-			public ISearchList results => throw new NotImplementedException();
-			public SearchContext context => state.context;
-			public float itemIconSize { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-			public DisplayMode displayMode => throw new NotImplementedException();
-			public bool multiselect { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-			public Rect position => throw new NotImplementedException();
-			public Action<SearchItem, bool> selectCallback => throw new NotImplementedException();
-			public Func<SearchItem, bool> filterCallback => throw new NotImplementedException();
-			public Action<SearchItem> trackingCallback => throw new NotImplementedException();
-
-			public void AddSelection(params int[] selection) => throw new NotImplementedException();
-			public void Close() => throw new NotImplementedException();
-			public void Dispose() => throw new NotImplementedException();
-			public void ExecuteAction(SearchAction action, SearchItem[] items, bool endSearch = true) => throw new NotImplementedException();
-			public void ExecuteSelection() => throw new NotImplementedException();
-			public void Focus() => throw new NotImplementedException();
-			public void FocusSearch() => throw new NotImplementedException();
-			public void Refresh(RefreshFlags reason = RefreshFlags.Default) => throw new NotImplementedException();
-			public void Repaint() => throw new NotImplementedException();
-			public void SelectSearch() => throw new NotImplementedException();
-			public void SetSearchText(string searchText, TextCursorPlacement moveCursor = TextCursorPlacement.MoveLineEnd) => throw new NotImplementedException();
-			public void SetSearchText(string searchText, TextCursorPlacement moveCursor, int cursorInsertPosition) => throw new NotImplementedException();
-			public void SetSelection(params int[] selection) => throw new NotImplementedException();
-			public void ShowItemContextualMenu(SearchItem item, Rect contextualActionPosition) => throw new NotImplementedException();
-
 
 			// ITableView
 
@@ -188,6 +160,8 @@ namespace UnityEditor.Search
 						searchColumn.options |= SearchColumnFlags.TextAlignmentRight;
 						break;
 				}
+
+				SearchColumnSettings.Save(searchColumn);
 			}
 
 			public IEnumerable<SearchItem> GetElements()
@@ -207,24 +181,24 @@ namespace UnityEditor.Search
 
 		internal void OnEnable()
 		{
-			m_SearchField = new SearchField();
+			titleContent = new GUIContent("Dependency Viewer", EditorGUIUtility.LoadIcon("UnityEditor.FindDependencies"));
 			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_States = m_States ?? BuildStates();
-			m_History = new List<List<DependencyState>>() { m_States };
-			m_HistoryCursor = m_History.Count - 1;
-			m_Views = BuildViews(m_States);
+			m_History = new List<List<DependencyState>>();
 			m_Splitter.host = this;
-
+			UpdateSelection();
+			
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
 		}
 
-		List<DependencyState> BuildStates()
+		List<DependencyState> BuildStates(SearchTable tableConfig = null)
 		{
+			if (UnityEditor.Selection.objects.Length == 0)
+				return new List<DependencyState>();
 			return new List<DependencyState>()
 			{
-				new DependencyState("Uses", "from"),
-				new DependencyState("Used By", "to")
+				new DependencyState("Uses", "from", tableConfig),
+				new DependencyState("Used By", "to", tableConfig)
 			};
 		}
 
@@ -240,16 +214,26 @@ namespace UnityEditor.Search
 
 		private void OnSelectionChanged()
 		{
-			m_States = BuildStates();
-			m_History.Add(m_States);
-			m_HistoryCursor = m_History.Count - 1;
-			m_Views = BuildViews(m_States);
+			if (UnityEditor.Selection.objects.Length == 0)
+				return;
+			UpdateSelection();
+			Repaint();
+		}
+
+		void UpdateSelection()
+		{
+			var currentTableConfig = m_States != null && m_States.Count > 0 ? m_States[0].tableConfig.Clone() : null;
 			m_SearchText = AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
+			m_States = BuildStates(currentTableConfig);
+			if (m_States.Count != 0)
+			{
+				m_History.Add(m_States);
+				m_HistoryCursor = m_History.Count - 1;
+				m_Views = BuildViews(m_States);
+			}
 
 			titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
 			titleContent.image = AssetDatabase.GetCachedIcon(m_SearchText);
-
-			Repaint();
 		}
 
 		internal void OnGUI()
@@ -269,37 +253,13 @@ namespace UnityEditor.Search
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabled();
-					var searchTextRect = m_SearchField.GetLayoutRect(m_SearchText, position.width, 50);
-					var searchClearButtonRect = Styles.searchFieldBtn.margin.Remove(searchTextRect);
-					searchClearButtonRect.xMin = searchClearButtonRect.xMax - 20f;
-
-					if (Event.current.type == EventType.MouseUp && searchClearButtonRect.Contains(Event.current.mousePosition))
-						m_SearchText = string.Empty;
-
-					var previousSearchText = m_SearchText;
-					if (Event.current.type != EventType.KeyDown || Event.current.keyCode != KeyCode.None || Event.current.character != '\r')
-					{
-						m_SearchText = m_SearchField.Draw(searchTextRect, m_SearchText, Styles.searchField);
-						if (!string.Equals(previousSearchText, m_SearchText, StringComparison.Ordinal))
-						{
-							// TODO: update search
-						}
-					}
-
-					if (!string.IsNullOrEmpty(m_SearchText))
-					{
-						if (GUI.Button(searchClearButtonRect, Icons.clear, Styles.searchFieldBtn))
-							m_SearchText = string.Empty;
-						EditorGUIUtility.AddCursorRect(searchClearButtonRect, MouseCursor.Arrow);
-					}
-
-					EditorGUIUtility.AddCursorRect(searchClearButtonRect, MouseCursor.Arrow);
+					GUILayout.Label(m_SearchText);
+					GUILayout.FlexibleSpace();
 				}
 
-				EditorGUILayout.BeginHorizontal();
-
-				if (m_Views.Count >= 1)
+				if (m_Views != null && m_Views.Count >= 1)
 				{
+					EditorGUILayout.BeginHorizontal();
 					var treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1)));
 					m_Splitter.Draw(evt, treeViewRect);
 					m_Views[0].OnGUI(treeViewRect);
@@ -308,7 +268,6 @@ namespace UnityEditor.Search
 					{
 						treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
 						m_Views[1].OnGUI(treeViewRect);
-						EditorGUILayout.EndHorizontal();
 
 						if (evt.type == EventType.Repaint)
 						{
@@ -316,6 +275,8 @@ namespace UnityEditor.Search
 												EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, 1f, 0f);
 						}
 					}
+
+					EditorGUILayout.EndHorizontal();
 				}
 			}
 		}
