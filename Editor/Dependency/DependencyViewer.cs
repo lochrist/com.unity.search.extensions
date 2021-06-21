@@ -1,73 +1,79 @@
 #if USE_DEPENDENCY_PROVIDER
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEditor.Search.Collections;
-using Random = UnityEngine.Random;
 
 namespace UnityEditor.Search
 {
-	[Serializable]
-	class DependencyTreeViewState : TreeViewState, ISearchCollectionView
+	class DependencyViewer : EditorWindow
 	{
-		[SerializeField] List<SearchCollection> m_Collections;
-
-		public DependencyTreeViewState(string filter)
+		[Serializable]
+		class DependencyTreeViewState : TreeViewState, ISearchCollectionView
 		{
-			m_Collections = new List<SearchCollection>();
-			m_Collections.Add(new SearchCollection(AssetDatabase.LoadAssetAtPath<SearchQueryAsset>("Assets/Search/Queries/Rocks & Trees.asset")));
+			[SerializeField] List<SearchCollection> m_Collections;
+
+			public DependencyTreeViewState(string name, string filter)
+			{
+				m_Collections = new List<SearchCollection>();
+				//m_Collections.Add(new SearchCollection(AssetDatabase.LoadAssetAtPath<SearchQueryAsset>("Assets/Search/Queries/Rocks & Trees.asset")));
+
+				var obj = Selection.activeObject;
+				if (obj)
+				{
+					var assetPath = AssetDatabase.GetAssetPath(obj);
+					if (!string.IsNullOrEmpty(assetPath))
+						m_Collections.Add(new SearchCollection($"{name} ({obj.name})", $"{filter}=\"{assetPath}\"", "expression", "dep"));
+				}
+			}
+
+			// 		protected override TreeViewItem BuildRoot()
+			// 		{
+			// 			var id = 1;
+			// 			var root = new TreeViewItem { id = id++, depth = -1, displayName = "Root", children = new List<TreeViewItem>() };
+			// 
+			// 			var obj = Selection.activeObject;
+			// 			if (!obj)
+			// 				return root;
+			// 			var assetPath = AssetDatabase.GetAssetPath(obj);
+			// 			if (string.IsNullOrEmpty(assetPath))
+			// 				return root;
+			// 			var depProvider = SearchService.GetProvider("dep");
+			// 			using (var context = SearchService.CreateContext(depProvider, $"{m_Filter}=\"{assetPath}\""))
+			// 			using (var request = SearchService.Request(context, SearchFlags.Synchronous))
+			// 			{
+			// 				foreach (var r in request)
+			// 				{
+			// 					if (r == null)
+			// 						continue;
+			// 					var path = AssetDatabase.GUIDToAssetPath(r.id);
+			// 					root.AddChild(new TreeViewItem(id++, 0, path));
+			// 				}
+			// 			}
+			// 			return root;
+			// 		}
+
+			public string searchText { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+
+			public ICollection<SearchCollection> collections => m_Collections;
+
+			public void AddCollectionMenus(GenericMenu menu)
+			{
+				throw new NotImplementedException();
+			}
+
+			public void OpenContextualMenu()
+			{
+				throw new NotImplementedException();
+			}
+
+			public void SaveCollections()
+			{
+				throw new NotImplementedException();
+			}
 		}
 
-// 		protected override TreeViewItem BuildRoot()
-// 		{
-// 			var id = 1;
-// 			var root = new TreeViewItem { id = id++, depth = -1, displayName = "Root", children = new List<TreeViewItem>() };
-// 
-// 			var obj = Selection.activeObject;
-// 			if (!obj)
-// 				return root;
-// 			var assetPath = AssetDatabase.GetAssetPath(obj);
-// 			if (string.IsNullOrEmpty(assetPath))
-// 				return root;
-// 			var depProvider = SearchService.GetProvider("dep");
-// 			using (var context = SearchService.CreateContext(depProvider, $"{m_Filter}=\"{assetPath}\""))
-// 			using (var request = SearchService.Request(context, SearchFlags.Synchronous))
-// 			{
-// 				foreach (var r in request)
-// 				{
-// 					if (r == null)
-// 						continue;
-// 					var path = AssetDatabase.GUIDToAssetPath(r.id);
-// 					root.AddChild(new TreeViewItem(id++, 0, path));
-// 				}
-// 			}
-// 			return root;
-// 		}
-
-		public string searchText { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-		public ICollection<SearchCollection> collections => m_Collections;
-
-		public void AddCollectionMenus(GenericMenu menu)
-		{
-			throw new NotImplementedException();
-		}
-
-		public void OpenContextualMenu()
-		{
-			throw new NotImplementedException();
-		}
-
-		public void SaveCollections()
-		{
-			throw new NotImplementedException();
-		}
-	}
-
-	class DependencyManager : EditorWindow
-	{
 		SearchField m_SearchField;
 		SearchCollectionTreeView m_DependencyTreeViewIns;
 		SearchCollectionTreeView m_DependencyTreeViewOuts;
@@ -82,8 +88,8 @@ namespace UnityEditor.Search
 			m_SearchField = new SearchField();
 			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_DependencyTreeViewStateIns = m_DependencyTreeViewStateIns ?? new DependencyTreeViewState("to");
-			m_DependencyTreeViewStateOuts = m_DependencyTreeViewStateOuts ?? new DependencyTreeViewState("from");
+			m_DependencyTreeViewStateIns = m_DependencyTreeViewStateIns ?? new DependencyTreeViewState("Uses", "from");
+			m_DependencyTreeViewStateOuts = m_DependencyTreeViewStateOuts ?? new DependencyTreeViewState("Used By", "to");
 
 			m_DependencyTreeViewIns = new SearchCollectionTreeView(m_DependencyTreeViewStateIns, m_DependencyTreeViewStateIns);
 			m_DependencyTreeViewOuts = new SearchCollectionTreeView(m_DependencyTreeViewStateOuts, m_DependencyTreeViewStateOuts);
@@ -160,10 +166,10 @@ namespace UnityEditor.Search
 			}
 		}
 
-		[MenuItem("Window/Search/Dependency Manager", priority = 5679)]
+		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
 		public static void OpenNew()
 		{
-			var win = CreateWindow<DependencyManager>();
+			var win = CreateWindow<DependencyViewer>();
 			win.position = Utils.GetMainWindowCenteredPosition(new Vector2(1000, 800));
 			win.Show();
 		}

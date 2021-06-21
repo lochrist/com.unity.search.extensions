@@ -6,14 +6,15 @@ using UnityEngine;
 namespace UnityEditor.Search.Collections
 {
     [Serializable]
-    class SearchCollection
+    class SearchCollection : IDisposable
     {
         public SearchCollection()
         {
             m_Name = null;
             m_Icon = null;
-            query = null;
-            color = new Color(0, 0, 0, 0);
+			m_Query = null;
+			m_QueryAsset = null;
+			color = new Color(0, 0, 0, 0);
             items = new HashSet<SearchItem>();
             m_gids = new List<string>();
         }
@@ -27,15 +28,29 @@ namespace UnityEditor.Search.Collections
         public SearchCollection(SearchQueryAsset searchQuery)
             : this()
         {
-            query = searchQuery != null ? searchQuery : throw new ArgumentNullException(nameof(searchQuery));
-            m_Name = query.displayName;
+			m_QueryAsset = searchQuery != null ? searchQuery : throw new ArgumentNullException(nameof(searchQuery));
+            m_Name = m_QueryAsset.displayName;
         }
 
-        public string name
+		public SearchCollection(string name, string query, params string[] providerIds)
+			: this(name)
+		{
+			var context = SearchService.CreateContext(providerIds, query);
+
+			m_QueryAsset = null;
+			m_Query = new SearchQuery()
+			{
+				name = name,
+				viewState = new SearchViewState(context),
+				displayName = name
+			};
+		}
+
+		public string name
         {
             get
             {
-                if (string.IsNullOrEmpty(m_Name) && query)
+                if (string.IsNullOrEmpty(m_Name) && query != null)
                     return query.displayName;
                 return m_Name ?? string.Empty;
             }
@@ -53,8 +68,8 @@ namespace UnityEditor.Search.Collections
         {
             get
             {
-                if (query && query.icon)
-                    return query.icon;
+                if (query != null && query.thumbnail)
+                    return query.thumbnail;
                 if (m_Icon)
                     return m_Icon;
                 return Icons.quicksearch;
@@ -62,10 +77,10 @@ namespace UnityEditor.Search.Collections
 
             set
             {
-                if (query)
+                if (query != null)
                 {
                     m_Icon = null;
-                    query.icon = value;
+					throw new NotSupportedException("TOOD: query.thumbnail = value");
                 }
                 else
                     m_Icon = value;
@@ -101,14 +116,17 @@ namespace UnityEditor.Search.Collections
             m_Objects = new HashSet<UnityEngine.Object>(objects);
         }
 
-        public SearchQueryAsset query;
-        public Color color;
+		[SerializeField] private SearchQuery m_Query;
+		[SerializeField] private SearchQueryAsset m_QueryAsset;
+		[SerializeField] public Color color;
         [SerializeField] private string m_Name;
         [SerializeField] private Texture2D m_Icon;
         [SerializeField] private List<string> m_gids;
         
         [NonSerialized] public HashSet<SearchItem> items;
         [NonSerialized] public HashSet<UnityEngine.Object> m_Objects;
+
+		public ISearchQuery query => m_QueryAsset != null ? m_QueryAsset : m_Query;
 
         public ISet<UnityEngine.Object> objects
         {
@@ -128,7 +146,13 @@ namespace UnityEditor.Search.Collections
                 m_gids.Remove(gid.ToString());
             }
         }
-    }
+
+		public void Dispose()
+		{
+			if (m_Query != null)
+				m_Query.viewState?.context?.Dispose();
+		}
+	}
 
     [Serializable]
     class SearchCollections

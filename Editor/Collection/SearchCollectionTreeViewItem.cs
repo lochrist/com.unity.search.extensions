@@ -48,10 +48,10 @@ namespace UnityEditor.Search.Collections
         {
             AddObjects(m_Collection.objects);
 
-            if (!m_Collection.query)
+            if (m_Collection.query == null)
                 return;
 
-            var context = SearchService.CreateContext(new [] {"scene", "expression", "asset"}, m_Collection.query.text);
+            var context = SearchService.CreateContext(m_Collection.query.GetProviderIds(), m_Collection.query.searchText);
             foreach (var item in m_Collection.items)
                 AddChild(new SearchTreeViewItem(m_TreeView, context, item));
             SearchService.Request(context, (_, items) =>
@@ -107,8 +107,8 @@ namespace UnityEditor.Search.Collections
             menu.AddSeparator("");
             menu.AddItem(new GUIContent("Set Color"), false, SelectColor);
             menu.AddItem(new GUIContent("Set Icon"), false, SetIcon);
-            if (m_Collection.query)
-                menu.AddItem(new GUIContent("Edit"), false, () => SearchQueryAsset.Open(m_Collection.query.GetInstanceID()));
+            if (m_Collection.query is SearchQueryAsset sqa)
+                menu.AddItem(new GUIContent("Edit"), false, () => SearchQueryAsset.Open(sqa.GetInstanceID()));
             menu.AddSeparator("");
             menu.AddItem(new GUIContent("Rename"), false, () => m_TreeView.BeginRename(this));
             menu.AddItem(new GUIContent("Remove"), false, () => m_TreeView.Remove(this, m_Collection));
