@@ -9,6 +9,19 @@ namespace UnityEditor.Search
 {
 	class DependencyViewer : EditorWindow
 	{
+		[SearchExpressionEvaluator(SearchExpressionEvaluationHints.ThreadNotSupported)]
+		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
+		{
+			foreach (var obj in UnityEditor.Selection.objects)
+			{
+				var assetPath = AssetDatabase.GetAssetPath(obj);
+				if (!string.IsNullOrEmpty(assetPath))
+					yield return EvaluatorUtils.CreateItem(assetPath);
+				else
+					yield return EvaluatorUtils.CreateItem(obj.GetInstanceID());
+			}
+		}
+
 		[Serializable]
 		class DependencyTreeViewState : TreeViewState, ISearchCollectionView
 		{
@@ -17,42 +30,8 @@ namespace UnityEditor.Search
 			public DependencyTreeViewState(string name, string filter)
 			{
 				m_Collections = new List<SearchCollection>();
-				//m_Collections.Add(new SearchCollection(AssetDatabase.LoadAssetAtPath<SearchQueryAsset>("Assets/Search/Queries/Rocks & Trees.asset")));
-
-				var obj = Selection.activeObject;
-				if (obj)
-				{
-					var assetPath = AssetDatabase.GetAssetPath(obj);
-					if (!string.IsNullOrEmpty(assetPath))
-						m_Collections.Add(new SearchCollection($"{name} ({obj.name})", $"{filter}=\"{assetPath}\"", "expression", "dep"));
-				}
+				m_Collections.Add(new SearchCollection(name, $"{filter}=selection{{}}", "expression", "dep"));
 			}
-
-			// 		protected override TreeViewItem BuildRoot()
-			// 		{
-			// 			var id = 1;
-			// 			var root = new TreeViewItem { id = id++, depth = -1, displayName = "Root", children = new List<TreeViewItem>() };
-			// 
-			// 			var obj = Selection.activeObject;
-			// 			if (!obj)
-			// 				return root;
-			// 			var assetPath = AssetDatabase.GetAssetPath(obj);
-			// 			if (string.IsNullOrEmpty(assetPath))
-			// 				return root;
-			// 			var depProvider = SearchService.GetProvider("dep");
-			// 			using (var context = SearchService.CreateContext(depProvider, $"{m_Filter}=\"{assetPath}\""))
-			// 			using (var request = SearchService.Request(context, SearchFlags.Synchronous))
-			// 			{
-			// 				foreach (var r in request)
-			// 				{
-			// 					if (r == null)
-			// 						continue;
-			// 					var path = AssetDatabase.GUIDToAssetPath(r.id);
-			// 					root.AddChild(new TreeViewItem(id++, 0, path));
-			// 				}
-			// 			}
-			// 			return root;
-			// 		}
 
 			public string searchText { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
@@ -83,10 +62,52 @@ namespace UnityEditor.Search
 		[SerializeField] DependencyTreeViewState m_DependencyTreeViewStateIns;
 		[SerializeField] DependencyTreeViewState m_DependencyTreeViewStateOuts;
 
+		[SerializeField] List<DependencyState> m_States;
+		[NonSerialized] Stack<List<DependencyState>> m_History;
+		[NonSerialized] List<DependencyView> m_Views;		
+
+		[Serializable]
+		class DependencyState : SearchQuery
+		{
+		}
+
+		class DependencyView : ISearchView
+		{
+			public string filter;
+			public PropertyTable table;
+			public DependencyState state;
+
+			public SearchSelection selection => throw new NotImplementedException();
+			public ISearchList results => throw new NotImplementedException();
+			public SearchContext context => throw new NotImplementedException();
+			public float itemIconSize { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+			public DisplayMode displayMode => throw new NotImplementedException();
+			public bool multiselect { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+			public Rect position => throw new NotImplementedException();
+			public Action<SearchItem, bool> selectCallback => throw new NotImplementedException();
+			public Func<SearchItem, bool> filterCallback => throw new NotImplementedException();
+			public Action<SearchItem> trackingCallback => throw new NotImplementedException();
+
+			public void AddSelection(params int[] selection) => throw new NotImplementedException();
+			public void Close() => throw new NotImplementedException();
+			public void Dispose() => throw new NotImplementedException();
+			public void ExecuteAction(SearchAction action, SearchItem[] items, bool endSearch = true) => throw new NotImplementedException();
+			public void ExecuteSelection() => throw new NotImplementedException();
+			public void Focus() => throw new NotImplementedException();
+			public void FocusSearch() => throw new NotImplementedException();
+			public void Refresh(RefreshFlags reason = RefreshFlags.Default) => throw new NotImplementedException();
+			public void Repaint() => throw new NotImplementedException();
+			public void SelectSearch() => throw new NotImplementedException();
+			public void SetSearchText(string searchText, TextCursorPlacement moveCursor = TextCursorPlacement.MoveLineEnd) => throw new NotImplementedException();
+			public void SetSearchText(string searchText, TextCursorPlacement moveCursor, int cursorInsertPosition) => throw new NotImplementedException();
+			public void SetSelection(params int[] selection) => throw new NotImplementedException();
+			public void ShowItemContextualMenu(SearchItem item, Rect contextualActionPosition) => throw new NotImplementedException();
+		}
+
 		internal void OnEnable()
 		{
 			m_SearchField = new SearchField();
-			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(Selection.activeObject);
+			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
 			m_DependencyTreeViewStateIns = m_DependencyTreeViewStateIns ?? new DependencyTreeViewState("Uses", "from");
 			m_DependencyTreeViewStateOuts = m_DependencyTreeViewStateOuts ?? new DependencyTreeViewState("Used By", "to");
@@ -95,22 +116,25 @@ namespace UnityEditor.Search
 			m_DependencyTreeViewOuts = new SearchCollectionTreeView(m_DependencyTreeViewStateOuts, m_DependencyTreeViewStateOuts);
 			m_Splitter.host = this;
 
-			Selection.selectionChanged += OnSelectionChanged;
+			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
 		}
 
 		internal void OnDisable()
 		{
-			Selection.selectionChanged -= OnSelectionChanged;
+			UnityEditor.Selection.selectionChanged -= OnSelectionChanged;
 		}
 
 		private void OnSelectionChanged()
 		{
 			m_DependencyTreeViewIns.Reload();
 			m_DependencyTreeViewOuts.Reload();
-			m_SearchText = AssetDatabase.GetAssetPath(Selection.activeObject);
+			m_SearchText = AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 
 			titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
 			titleContent.image = AssetDatabase.GetCachedIcon(m_SearchText);
+
+			m_DependencyTreeViewIns.ExpandAll();
+			m_DependencyTreeViewOuts.ExpandAll();
 		}
 
 		internal void OnGUI()

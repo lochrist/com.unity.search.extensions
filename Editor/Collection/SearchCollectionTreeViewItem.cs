@@ -51,7 +51,10 @@ namespace UnityEditor.Search.Collections
             if (m_Collection.query == null)
                 return;
 
-            var context = SearchService.CreateContext(m_Collection.query.GetProviderIds(), m_Collection.query.searchText);
+			children.Clear();
+			m_Collection.items.Clear();
+
+			var context = SearchService.CreateContext(m_Collection.query.GetProviderIds(), m_Collection.query.searchText);
             foreach (var item in m_Collection.items)
                 AddChild(new SearchTreeViewItem(m_TreeView, context, item));
             SearchService.Request(context, (_, items) =>
