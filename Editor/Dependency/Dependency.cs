@@ -460,7 +460,7 @@ static class Dependency
 		yield return Goto("missing", "Show broken links", "is:missing from");
 		yield return LogRefs();
 
-		if (SearchService.GetProvider("asset").active)
+		if (SearchService.GetProvider("asset")?.active ?? false)
 		{
 			yield return new SearchAction("asset", "usings", new GUIContent("Find Usings"), FindUsings);
 			yield return new SearchAction("asset", "usage", new GUIContent("Find Usage"), FindUsage);

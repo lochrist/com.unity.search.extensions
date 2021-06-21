@@ -20,7 +20,7 @@ namespace UnityEditor.Search.Collections
     }
 
     [Icon("Icons/QuickSearch/ListView.png")]
-    [Overlay(typeof(SceneView), "Collections", defaultLayout: false)]
+    //[Overlay(typeof(SceneView), "Collections", defaultLayout: false)]
     class SearchCollectionOverlay : Overlay, ISearchCollectionView, IHasCustomMenu
     {
         static class InnerStyles
