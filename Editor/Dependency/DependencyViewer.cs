@@ -232,8 +232,11 @@ namespace UnityEditor.Search
 				m_Views = BuildViews(m_States);
 			}
 
-			titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
-			titleContent.image = AssetDatabase.GetCachedIcon(m_SearchText);
+			if (!string.IsNullOrEmpty(m_SearchText))
+			{
+				titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
+				titleContent.image = AssetDatabase.GetCachedIcon(m_SearchText);
+			}
 		}
 
 		internal void OnGUI()
