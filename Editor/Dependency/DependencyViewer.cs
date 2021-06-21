@@ -29,21 +29,19 @@ namespace UnityEditor.Search
 
 		SearchField m_SearchField;
 		[SerializeField] string m_SearchText;
-
-		DependencyView m_ViewLeft;
-		DependencyView m_ViewRight;
 		[SerializeField] SplitterInfo m_Splitter;
-		[SerializeField] DependencyState m_StateLeft;
-		[SerializeField] DependencyState m_StateRight;
 
 		[SerializeField] List<DependencyState> m_States;
-		[NonSerialized] Stack<List<DependencyState>> m_History;
+		[NonSerialized] List<List<DependencyState>> m_History;
+		[NonSerialized] int m_HistoryCursor = -1;
 		[NonSerialized] List<DependencyView> m_Views;
 
+
 		[Serializable]
-		class DependencyState : IDisposable, ISerializationCallbackReceiver
+		class DependencyState : ISerializationCallbackReceiver
 		{
-			private SearchQuery m_Query;
+			[SerializeField] private string m_Name;
+			[SerializeField] private SearchQuery m_Query;
 			[NonSerialized] private SearchTable m_TableConfig;
 
 			public string guid => m_Query.guid;
@@ -52,7 +50,18 @@ namespace UnityEditor.Search
 
 			public DependencyState(string name, string filter)
 			{
-				var context = SearchService.CreateContext(new [] { "expression", "dep" }, $"{filter}=selection{{}}");
+				var selectedPaths = new List<string>();
+				foreach (var obj in UnityEditor.Selection.objects)
+				{
+					var assetPath = AssetDatabase.GetAssetPath(obj);
+					if (!string.IsNullOrEmpty(assetPath))
+						selectedPaths.Add("\"" + assetPath + "\"");
+					else
+						selectedPaths.Add(obj.GetInstanceID().ToString());
+				}
+
+				m_Name = name;
+				var context = SearchService.CreateContext(new [] { "expression", "dep" }, $"{filter}=[{string.Join(",", selectedPaths)}]");
 				m_TableConfig = new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
 				m_Query = new SearchQuery()
 				{
@@ -65,7 +74,10 @@ namespace UnityEditor.Search
 
 			private IEnumerable<SearchColumn> GetDefaultColumns()
 			{
-				return ItemSelectors.Enumerate(null);
+				var defaultDepFlags = SearchColumnFlags.IgnoreSettings | SearchColumnFlags.CanSort;
+				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
+				yield return new SearchColumn("Type", "type", null, defaultDepFlags);
+				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
 			}
 
 			public void Dispose()
@@ -81,7 +93,7 @@ namespace UnityEditor.Search
 			{
 				if (m_TableConfig == null)
 					m_TableConfig = m_Query.tableConfig;
-				m_TableConfig.InitFunctors();
+				m_TableConfig?.InitFunctors();
 			}
 		}
 
@@ -198,14 +210,27 @@ namespace UnityEditor.Search
 			m_SearchField = new SearchField();
 			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_StateLeft = m_StateLeft ?? new DependencyState("Uses", "from");
-			m_StateRight = m_StateRight ?? new DependencyState("Used By", "to");
-
-			m_ViewLeft = new DependencyView(m_StateLeft);
-			m_ViewRight = new DependencyView(m_StateRight);
+			m_States = m_States ?? BuildStates();
+			m_History = new List<List<DependencyState>>() { m_States };
+			m_HistoryCursor = m_History.Count - 1;
+			m_Views = BuildViews(m_States);
 			m_Splitter.host = this;
 
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
+		}
+
+		List<DependencyState> BuildStates()
+		{
+			return new List<DependencyState>()
+			{
+				new DependencyState("Uses", "from"),
+				new DependencyState("Used By", "to")
+			};
+		}
+
+		List<DependencyView> BuildViews(IEnumerable<DependencyState> states)
+		{
+			return states.Select(s => new DependencyView(s)).ToList();
 		}
 
 		internal void OnDisable()
@@ -215,8 +240,10 @@ namespace UnityEditor.Search
 
 		private void OnSelectionChanged()
 		{
-			m_ViewLeft.Reload();
-			m_ViewRight.Reload();
+			m_States = BuildStates();
+			m_History.Add(m_States);
+			m_HistoryCursor = m_History.Count - 1;
+			m_Views = BuildViews(m_States);
 			m_SearchText = AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 
 			titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
@@ -234,7 +261,15 @@ namespace UnityEditor.Search
 			{
 				using (new GUILayout.HorizontalScope(Styles.searchReportField))
 				{
-					var searchTextRect = m_SearchField.GetLayoutRect(m_SearchText, position.width, (Styles.toolbarButton.fixedWidth + Styles.toolbarButton.margin.left) + Styles.toolbarButton.margin.right);
+					EditorGUI.BeginDisabled(m_HistoryCursor <= 0);
+					if (GUILayout.Button("<"))
+						GotoPrevStates();
+					EditorGUI.EndDisabled();
+					EditorGUI.BeginDisabled(m_HistoryCursor == m_History.Count-1);
+					if (GUILayout.Button(">"))
+						GotoNextStates();
+					EditorGUI.EndDisabled();
+					var searchTextRect = m_SearchField.GetLayoutRect(m_SearchText, position.width, 50);
 					var searchClearButtonRect = Styles.searchFieldBtn.margin.Remove(searchTextRect);
 					searchClearButtonRect.xMin = searchClearButtonRect.xMax - 20f;
 
@@ -262,20 +297,41 @@ namespace UnityEditor.Search
 				}
 
 				EditorGUILayout.BeginHorizontal();
-				var treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1)));
-				m_Splitter.Draw(evt, treeViewRect);
-				m_ViewLeft.OnGUI(treeViewRect);
 
-				treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
-				m_ViewRight.OnGUI(treeViewRect);
-				EditorGUILayout.EndHorizontal();
-
-				if (evt.type == EventType.Repaint)
+				if (m_Views.Count >= 1)
 				{
-					GUI.DrawTexture(new Rect(treeViewRect.xMin, treeViewRect.yMin, 1, treeViewRect.height),
-										EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, 1f, 0f);
+					var treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1)));
+					m_Splitter.Draw(evt, treeViewRect);
+					m_Views[0].OnGUI(treeViewRect);
+
+					if (m_Views.Count >= 2)
+					{
+						treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
+						m_Views[1].OnGUI(treeViewRect);
+						EditorGUILayout.EndHorizontal();
+
+						if (evt.type == EventType.Repaint)
+						{
+							GUI.DrawTexture(new Rect(treeViewRect.xMin, treeViewRect.yMin, 1, treeViewRect.height),
+												EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, 1f, 0f);
+						}
+					}
 				}
 			}
+		}
+
+		private void GotoNextStates()
+		{
+			m_States = m_History[++m_HistoryCursor];
+			m_Views = BuildViews(m_States);
+			Repaint();
+		}
+
+		private void GotoPrevStates()
+		{
+			m_States = m_History[--m_HistoryCursor];
+			m_Views = BuildViews(m_States);
+			Repaint();
 		}
 
 		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
