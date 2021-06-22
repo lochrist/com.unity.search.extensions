@@ -48,6 +48,15 @@ static class Dependency
 		"0000000000000000f000000000000000"
 	};
 
+	[SearchSelector("usedByCount", provider: providerId)]
+	internal static object SelectUsedByCount(SearchItem item)
+	{
+		var count = GetUseByCount(item.id);
+		if (count < 0)
+			return null;
+		return count;
+	}
+
 	[MenuItem("Window/Search/Rebuild dependency index", priority = 5677)]
 	static void Build()
 	{
@@ -64,11 +73,6 @@ static class Dependency
 			var assetPath = AssetDatabase.GUIDToAssetPath(guid);
 			pathToGuidMap.TryAdd(assetPath, guid);
 			guidToPathMap.TryAdd(guid, assetPath);
-		}
-
-		using (var view = SearchMonitor.GetView())
-		{
-			view.InvalidateDocument("assetUseByCount");
 		}
 
 		Task.Run(RunThreadIndexing);
@@ -111,9 +115,9 @@ static class Dependency
 		SearchService.ShowWindow(searchContext, "Dependencies (to)", saveFilters: false);
 	}
 
-	internal static int GetUseByCount(string id, Action<int> getAsyncCount = null)
+	internal static int GetUseByCount(string id)
 	{
-		var recordKey = PropertyDatabase.CreateRecordKey("assetUseByCount", id);
+		var recordKey = PropertyDatabase.CreateRecordKey(id, "assetUseByCount");
 		using (var view = SearchMonitor.GetView())
 		{
 			if (view.TryLoadProperty(recordKey, out object data))
@@ -132,6 +136,7 @@ static class Dependency
 				view.Invalidate(recordKey);
 				view.StoreProperty(recordKey, items.Count);
 			}
+			context.Dispose();
 		});
 		return -1;
 	}

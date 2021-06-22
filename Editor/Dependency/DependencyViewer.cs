@@ -10,18 +10,6 @@ namespace UnityEditor.Search
 	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
 	class DependencyViewer : EditorWindow
 	{
-		[SearchColumnProvider("usedByCount")]
-		internal static void InitializeItemUsedByCountColumn(SearchColumn column)
-		{
-			column.getter = args =>
-			{
-				var count = Dependency.GetUseByCount(args.item.id);
-				if (count == -1)
-					return "";
-				return count;
-			};
-		}
-
 		[SearchExpressionEvaluator]
 		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
 		{
@@ -87,9 +75,9 @@ namespace UnityEditor.Search
 			{
 				var defaultDepFlags = SearchColumnFlags.CanSort;
 				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
-				yield return new SearchColumn("Type", "type", null, defaultDepFlags);
+				yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
 				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
-				yield return new SearchColumn("Used By Count", "usedByCount", "usedByCount", null, defaultDepFlags);
+				yield return new SearchColumn("Used #", "usedByCount", null, defaultDepFlags);
 			}
 
 			public void Dispose()
@@ -204,14 +192,14 @@ namespace UnityEditor.Search
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
 		}
 
-		List<DependencyState> BuildStates(SearchTable tableConfig = null)
+		List<DependencyState> BuildStates(List<DependencyState> previousStates = null)
 		{
 			if (UnityEditor.Selection.objects.Length == 0)
 				return new List<DependencyState>();
 			return new List<DependencyState>()
 			{
-				new DependencyState("Uses", "from", tableConfig),
-				new DependencyState("Used By", "to", tableConfig)
+				new DependencyState("Uses", "from", previousStates != null && previousStates.Count >= 1 ? previousStates[0].tableConfig : null),
+				new DependencyState("Used By", "to", previousStates != null && previousStates.Count >= 2 ? previousStates[1].tableConfig : null)
 			};
 		}
 
@@ -237,7 +225,7 @@ namespace UnityEditor.Search
 		{
 			var currentTableConfig = m_States != null && m_States.Count > 0 ? m_States[0].tableConfig.Clone() : null;
 			m_SearchText = AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
-			m_States = BuildStates(currentTableConfig);
+			m_States = BuildStates(m_States);
 			if (m_States.Count != 0)
 			{
 				m_History.Add(m_States);
