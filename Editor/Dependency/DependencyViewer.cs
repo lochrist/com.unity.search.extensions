@@ -10,6 +10,18 @@ namespace UnityEditor.Search
 	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
 	class DependencyViewer : EditorWindow
 	{
+		[SearchColumnProvider("usedByCount")]
+		internal static void InitializeItemUsedByCountColumn(SearchColumn column)
+		{
+			column.getter = args =>
+			{
+				var count = Dependency.GetUseByCount(args.item.id);
+				if (count == -1)
+					return "";
+				return count;
+			};
+		}
+
 		[SearchExpressionEvaluator]
 		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
 		{
@@ -77,6 +89,7 @@ namespace UnityEditor.Search
 				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
 				yield return new SearchColumn("Type", "type", null, defaultDepFlags);
 				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
+				yield return new SearchColumn("Used By", "usedByCount", "usedByCount", null, defaultDepFlags);
 			}
 
 			public void Dispose()

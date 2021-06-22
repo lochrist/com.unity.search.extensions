@@ -106,6 +106,31 @@ static class Dependency
 		SearchService.ShowWindow(searchContext, "Dependencies (to)", saveFilters: false);
 	}
 
+	internal static int GetUseByCount(string id, Action<int> getAsyncCount = null)
+	{
+		var recordKey = PropertyDatabase.CreateRecordKey("assetUseByCount", id);
+		using (var view = SearchMonitor.GetView())
+		{
+			if (view.TryLoadProperty(recordKey, out object data))
+				return (int)data;
+		}
+
+		var path = AssetDatabase.GUIDToAssetPath(id);
+		if (path == null)
+			return -1;
+
+		var searchContext = SearchService.CreateContext(providerId, $"to=\"{path}\"");
+		SearchService.Request(searchContext, (context, items) =>
+		{
+			using (var view = SearchMonitor.GetView())
+			{
+				view.Invalidate(recordKey);
+				view.StoreProperty(recordKey, items.Count);
+			}
+		});
+		return -1;
+	}
+
 	[MenuItem("Assets/(depends) Find References (ref)")]
 	internal static void FindReferences()
 	{
