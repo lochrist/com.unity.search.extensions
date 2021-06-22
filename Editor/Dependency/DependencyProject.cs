@@ -18,18 +18,13 @@ namespace UnityEditor.Search
 		{
 			var count = Dependency.GetUseByCount(guid);
 			if (count == -1)
-			{
 				return;
-			}
 
 			if (miniLabelAlignRight == null)
-				miniLabelAlignRight = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight };
+				miniLabelAlignRight = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, padding = new RectOffset(0, 0, 0, 0) };
 
-			var r = new Rect(rect.x, rect.y, 1f, 16f);
-			var content = new GUIContent(count.ToString());
-			r.width = 16f;
-			r.x -= 10f;
-			GUI.Label(r, content, EditorStyles.label);
+			var r = new Rect(rect.x - 14f, rect.y, 16f, rect.height);
+			GUI.Label(r, Utils.FormatCount((ulong)count), miniLabelAlignRight);
 		}
 	}
 }
