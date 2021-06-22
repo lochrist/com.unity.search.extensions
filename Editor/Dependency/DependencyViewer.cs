@@ -176,7 +176,6 @@ namespace UnityEditor.Search
 
 	class DependencyTableView : ITableView
 	{
-		public string filter;
 		public PropertyTable table;
 		public readonly DependencyState state;
 
@@ -287,10 +286,10 @@ namespace UnityEditor.Search
 		{
 			titleContent = new GUIContent("Dependency Viewer", Icons.dependencies);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_CurrentState = m_CurrentState ?? new DependencyViewerState("No Dependencies");
+			m_CurrentState = m_CurrentState ?? DependencyBuiltinStates.TrackSelection(m_CurrentState);
 			m_History = new List<DependencyViewerState>();
 			m_Splitter.host = this;
-			UpdateSelection();
+			PushViewerState(m_CurrentState);
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
 		}
 
@@ -342,15 +341,8 @@ namespace UnityEditor.Search
 
 			using (new EditorGUILayout.VerticalScope(GUIStyle.none, GUILayout.ExpandHeight(true)))
 			{
-				using (new GUILayout.HorizontalScope(UnityEditor.Search.Styles.searchReportField))
+				using (new GUILayout.HorizontalScope(Search.Styles.searchReportField))
 				{
-					EditorGUI.BeginChangeCheck();
-					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
-					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
-					{
-						OnSelectionChanged();
-					}
-
 					EditorGUI.BeginDisabled(m_HistoryCursor <= 0);
 					if (GUILayout.Button("<"))
 						GotoPrevStates();
@@ -363,6 +355,10 @@ namespace UnityEditor.Search
 					GUILayout.FlexibleSpace();
 					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.status ?? "Source"), FocusType.Passive))
 						OnSourceChange();
+					EditorGUI.BeginChangeCheck();
+					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
+					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
+						OnSelectionChanged();
 				}
 
 				if (m_Views != null && m_Views.Count >= 1)

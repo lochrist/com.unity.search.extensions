@@ -35,7 +35,7 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		internal static DependencyViewerState GetBrokenDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState BrokenDependencies(DependencyViewerState previousState)
 		{
 			var state = new DependencyViewerState("Broken dependencies");
 			state.states.Add(new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken")));
@@ -43,7 +43,7 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		internal static DependencyViewerState GetMissingDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState MissingDependencies(DependencyViewerState previousState)
 		{
 			var state = new DependencyViewerState("Missing dependencies");
 			state.states.Add(new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing")));
