@@ -18,6 +18,9 @@ using System.Threading;
 // id:<guid>     => Yield asset with <guid>
 // path:<path>   => Yield asset at <path>
 // t:<extension> => Yield assets with <extension>
+// is:file       => Yield file assets
+// is:folder     => Yield folder assets
+// is:package    => Yield package assets
 //
 // is:valid      => Yield assets which have no missing references
 // is:broken     => Yield assets that have at least one broken reference.
@@ -215,6 +218,12 @@ static class Dependency
 			AddStaticProperty("id", guid, di, exact: true);
 			AddStaticProperty("path", path, di, exact: true);
 			AddStaticProperty("t", GetExtension(path), di);
+			if (Directory.Exists(path))
+				AddStaticProperty("is", "folder", di);
+			else
+				AddStaticProperty("is", "file", di);
+			if (path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+				AddStaticProperty("is", "package", di);
 			index.AddWord(guid, guid.Length, 0, di);
 			IndexWordComponents(di, path);
 		}
