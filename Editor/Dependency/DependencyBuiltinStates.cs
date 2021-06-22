@@ -49,6 +49,20 @@ namespace UnityEditor.Search
 			state.states.Add(new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing")));
 			return state;
 		}
+
+		[DependencyViewerState]
+		static DependencyViewerState MostUsedAssets(DependencyViewerState previousState)
+		{
+			var state = new DependencyViewerState("Most Used Assets");
+
+			var defaultDepFlags = SearchColumnFlags.CanSort;
+			var tableConfig = new SearchTable(Guid.NewGuid().ToString("N"), "Name", new[] {
+				new SearchColumn("Name", "Label", "label", null, defaultDepFlags)
+			});
+			var tableState = new DependencyState("Most Used Assets", SearchService.CreateContext("dep,expression,asset", "first{25, sort{count{...to=select{a:assets, @path}}, @value, desc}}"), tableConfig);
+			state.states.Add(tableState);
+			return state;
+		}
 	}
 }
 #endif
