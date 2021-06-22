@@ -66,6 +66,11 @@ static class Dependency
 			guidToPathMap.TryAdd(guid, assetPath);
 		}
 
+		using (var view = SearchMonitor.GetView())
+		{
+			view.InvalidateDocument("assetUseByCount");
+		}
+
 		Task.Run(RunThreadIndexing);
 	}
 
@@ -116,7 +121,7 @@ static class Dependency
 		}
 
 		var path = AssetDatabase.GUIDToAssetPath(id);
-		if (path == null)
+		if (path == null || Directory.Exists(path))
 			return -1;
 
 		var searchContext = SearchService.CreateContext(providerId, $"to=\"{path}\"");

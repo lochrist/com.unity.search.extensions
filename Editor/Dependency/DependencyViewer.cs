@@ -89,7 +89,7 @@ namespace UnityEditor.Search
 				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
 				yield return new SearchColumn("Type", "type", null, defaultDepFlags);
 				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
-				yield return new SearchColumn("Used By", "usedByCount", "usedByCount", null, defaultDepFlags);
+				yield return new SearchColumn("Used By Count", "usedByCount", "usedByCount", null, defaultDepFlags);
 			}
 
 			public void Dispose()
