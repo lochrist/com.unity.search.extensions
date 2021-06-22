@@ -1,9 +1,5 @@
 #if USE_DEPENDENCY_PROVIDER
-using System;
 using System.Collections.Generic;
-using UnityEditor.IMGUI.Controls;
-using UnityEngine;
-using System.Linq;
 
 namespace UnityEditor.Search
 {
@@ -12,41 +8,30 @@ namespace UnityEditor.Search
 		[DependencyViewerState]
 		public static DependencyViewerState TrackSelection(DependencyViewerState previousState)
 		{
-			if (UnityEditor.Selection.objects.Length == 0)
+			if (Selection.objects.Length == 0)
 				return new DependencyViewerState("No Selection");
 
+			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
-			var singleAssetPath = "";
-			foreach (var obj in UnityEditor.Selection.objects)
+			foreach (var obj in Selection.objects)
 			{
+				var instanceId = obj.GetInstanceID();
 				var assetPath = AssetDatabase.GetAssetPath(obj);
 				if (!string.IsNullOrEmpty(assetPath))
-				{
 					selectedPaths.Add("\"" + assetPath + "\"");
-					if (singleAssetPath == "")
-						singleAssetPath = assetPath;
-				}
 				else
-					selectedPaths.Add(obj.GetInstanceID().ToString());
+					selectedPaths.Add(instanceId.ToString());
+				globalObjectIds.Add(GlobalObjectId.GetGlobalObjectIdSlow(instanceId).ToString());
 			}
 
 			var providers = new[] { "expression", "dep" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
-			var title = System.IO.Path.GetFileNameWithoutExtension(singleAssetPath);
-			if (UnityEditor.Selection.objects.Length > 1)
-			{
-				title = $"{UnityEditor.Selection.objects.Length} Objects selected";
-			}
-
-			var state = new DependencyViewerState(title, new[] {
+			return new DependencyViewerState(globalObjectIds, new[] {
 				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"),
 					previousState != null && previousState.states.Count >= 1 ? previousState.states[0].tableConfig : null),
 				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"),
 					previousState != null && previousState.states.Count >= 2 ? previousState.states[1].tableConfig : null)
 			});
-			if (singleAssetPath != "")
-				state.icon = AssetDatabase.GetCachedIcon(singleAssetPath) as Texture2D;
-			return state;
 		}
 
 		[DependencyViewerState]

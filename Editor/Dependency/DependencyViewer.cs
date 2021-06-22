@@ -7,6 +7,11 @@ using System.Linq;
 
 namespace UnityEditor.Search
 {
+	interface IDependencyViewHost
+	{
+		void Repaint();
+	}
+
 	[AttributeUsage(AttributeTargets.Method)]
 	class DependencyViewerStateAttribute : Attribute
 	{
@@ -35,7 +40,7 @@ namespace UnityEditor.Search
 				}
 				catch(Exception e)
 				{
-					Debug.LogError($"Cannot register State provider: {mi.Name}");
+					Debug.LogError($"Cannot register State provider: {mi.Name}\n{e}");
 				}				
 			}
 		}
@@ -101,156 +106,195 @@ namespace UnityEditor.Search
 	[Serializable]
 	class DependencyViewerState
 	{
-		public string dependencyTitle;
-		public string windowTitle;
-		public Texture2D icon;
 		public List<DependencyState> states;
+		public List<string> globalIds;
+		[SerializeField] private GUIContent title;
+		[SerializeField] private GUIContent windowTitle;
 
-		public DependencyViewerState(string title, IEnumerable<DependencyState> states = null)
+		public DependencyViewerState(string status)
+				: this(new List<string>(), new List<DependencyState>())
 		{
-			dependencyTitle = title;
-			windowTitle = title;
+			title = new GUIContent(status);
+		}
+
+		public DependencyViewerState(List<string> globalIds, IEnumerable<DependencyState> states)
+		{
+			this.globalIds = globalIds ?? new List<string>();
 			this.states = states != null ? states.ToList() : new List<DependencyState>();
+		}
+
+		public GUIContent GetTitle()
+		{
+			if (title == null)
+			{
+				var names = EnumeratePaths().ToList();
+				if (names.Count == 0)
+					title = new GUIContent("No dependencies");
+				else if (names.Count == 1)
+					title = new GUIContent(string.Join(", ", names), AssetDatabase.GetCachedIcon(names[0]));
+				else if (names.Count < 4)
+					title = new GUIContent(string.Join(", ", names));
+				else
+					title = new GUIContent($"{names.Count} object selected", string.Join("\n", names));
+			}
+
+			return title;
+		}
+
+		public GUIContent GetWindowTitle()
+		{
+			if (windowTitle == null)
+			{
+				var names = EnumeratePaths().ToList();
+				if (names.Count != 1)
+					windowTitle = new GUIContent($"Dependency Viewer ({names.Count})", Icons.dependencies);
+				else
+					windowTitle = new GUIContent(System.IO.Path.GetFileNameWithoutExtension(names.First()), AssetDatabase.GetCachedIcon(names[0]));
+			}
+
+			return windowTitle;
+		}
+
+		IEnumerable<string> EnumeratePaths()
+		{
+			if (globalIds == null || globalIds.Count == 0)
+				yield break;
+
+			foreach (var sgid in globalIds)
+			{
+				if (!GlobalObjectId.TryParse(sgid, out var gid))
+					continue;
+				var instanceId = GlobalObjectId.GlobalObjectIdentifierToInstanceIDSlow(gid);
+				var assetPath = AssetDatabase.GetAssetPath(instanceId);
+				if (!string.IsNullOrEmpty(assetPath))
+					yield return assetPath;
+			}
+		}
+	}
+
+	class DependencyTableView : ITableView
+	{
+		public string filter;
+		public PropertyTable table;
+		public readonly DependencyState state;
+
+		HashSet<SearchItem> m_Items;
+
+		public IDependencyViewHost host { get; private set; }
+		public SearchContext context => state.context;
+
+		public DependencyTableView(DependencyState state, IDependencyViewHost host)
+		{
+			this.host = host;
+			this.state = state;
+			m_Items = new HashSet<SearchItem>();
+			Reload();
+		}
+
+		public void OnGUI(Rect rect)
+		{
+			table?.OnGUI(rect);
+		}
+
+		private void BuildTable()
+		{
+			table = new PropertyTable(state.guid, this);
+			host.Repaint();
+		}
+
+		public void Reload()
+		{
+			m_Items.Clear();
+			SearchService.Request(state.context, (c, items) => m_Items.UnionWith(items), _ => BuildTable());
+		}
+
+		// ITableView
+
+		public void AddColumn(Vector2 mousePosition, int activeColumnIndex) => throw new NotImplementedException();
+		public void AddColumns(IEnumerable<SearchColumn> descriptors, int activeColumnIndex) => throw new NotImplementedException();
+		public void SetupColumns(IEnumerable<SearchItem> elements = null) => throw new NotImplementedException();
+		public void RemoveColumn(int activeColumnIndex) => throw new NotImplementedException();
+		public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
+		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
+		public SearchTable GetSearchTable() => throw new NotImplementedException();
+		public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn) => throw new NotImplementedException();
+		public bool OpenContextualMenu(Event evt, SearchItem item) => throw new NotImplementedException();
+
+		public void SetSelection(IEnumerable<SearchItem> items)
+		{
+			var firstItem = items.FirstOrDefault();
+			if (firstItem != null)
+				Utils.PingAsset(SearchUtils.GetAssetPath(firstItem));
+		}
+
+		public void UpdateColumnSettings(int columnIndex, MultiColumnHeaderState.Column columnSettings)
+		{
+			var searchColumn = state.tableConfig.columns[columnIndex];
+			searchColumn.width = columnSettings.width;
+			searchColumn.content = columnSettings.headerContent;
+			searchColumn.options &= ~SearchColumnFlags.TextAligmentMask;
+			switch (columnSettings.headerTextAlignment)
+			{
+				case TextAlignment.Left:
+					searchColumn.options |= SearchColumnFlags.TextAlignmentLeft;
+					break;
+				case TextAlignment.Center:
+					searchColumn.options |= SearchColumnFlags.TextAlignmentCenter;
+					break;
+				case TextAlignment.Right:
+					searchColumn.options |= SearchColumnFlags.TextAlignmentRight;
+					break;
+			}
+
+			SearchColumnSettings.Save(searchColumn);
+		}
+
+		public IEnumerable<SearchItem> GetElements()
+		{
+			return m_Items;
+		}
+
+		public IEnumerable<SearchColumn> GetColumns()
+		{
+			return state.tableConfig.columns;
+		}
+
+		public void SetDirty()
+		{
+			host.Repaint();
 		}
 	}
 
 	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
-	class DependencyViewer : EditorWindow
+	class DependencyViewer : EditorWindow, IDependencyViewHost
 	{
 		static class Styles
 		{
 			public static GUIStyle lockButton = "IN LockButton";
 		}
 
-		[SearchExpressionEvaluator]
-		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
-		{
-			return TaskEvaluatorManager.EvaluateMainThread<SearchItem>(CreateItemsFromSelection);
-		}
-
-		private static void CreateItemsFromSelection(Action<SearchItem> yielder)
-		{
-			foreach (var obj in UnityEditor.Selection.objects)
-			{
-				var assetPath = AssetDatabase.GetAssetPath(obj);
-				if (!string.IsNullOrEmpty(assetPath))
-					yielder(EvaluatorUtils.CreateItem(assetPath));
-				else
-					yielder(EvaluatorUtils.CreateItem(obj.GetInstanceID()));
-			}
-		}
-
 		[SerializeField] bool m_LockSelection;
 		[SerializeField] SplitterInfo m_Splitter;
 		[SerializeField] DependencyViewerState m_CurrentState;
-		List<DependencyViewerState> m_History;
+
 		int m_HistoryCursor = -1;
+		List<DependencyViewerState> m_History;
 		List<DependencyTableView> m_Views;				
-		
-		class DependencyTableView : ITableView
-		{
-			public string filter;
-			public PropertyTable table;
-			public readonly DependencyState state;
-
-			HashSet<SearchItem> m_Items;
-
-			public SearchContext context => state.context;
-
-			public DependencyTableView(DependencyState state)
-			{
-				this.state = state;
-				m_Items = new HashSet<SearchItem>();
-				Reload();
-			}
-
-			public void OnGUI(Rect rect)
-			{
-				table?.OnGUI(rect);
-			}
-
-			private void BuildTable()
-			{
-				table = new PropertyTable(state.guid, this);
-			}
-
-			public void Reload()
-			{
-				m_Items.Clear();
-				SearchService.Request(state.context, (c, items) => m_Items.UnionWith(items), _ => BuildTable());
-			}
-
-			// ITableView
-
-			public void AddColumn(Vector2 mousePosition, int activeColumnIndex) => throw new NotImplementedException();
-			public void AddColumns(IEnumerable<SearchColumn> descriptors, int activeColumnIndex) => throw new NotImplementedException();
-			public void SetupColumns(IEnumerable<SearchItem> elements = null) => throw new NotImplementedException();
-			public void RemoveColumn(int activeColumnIndex) => throw new NotImplementedException();
-			public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
-			public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
-			public SearchTable GetSearchTable() => throw new NotImplementedException();
-			public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn) => throw new NotImplementedException();
-			public bool OpenContextualMenu(Event evt, SearchItem item) => throw new NotImplementedException();
-
-			public void SetSelection(IEnumerable<SearchItem> items)
-			{
-				var firstItem = items.FirstOrDefault();
-				if (firstItem != null)
-					Utils.PingAsset(SearchUtils.GetAssetPath(firstItem));
-			}
-
-			public void UpdateColumnSettings(int columnIndex, MultiColumnHeaderState.Column columnSettings)
-			{
-				var searchColumn = state.tableConfig.columns[columnIndex];
-				searchColumn.width = columnSettings.width;
-				searchColumn.content = columnSettings.headerContent;
-				searchColumn.options &= ~SearchColumnFlags.TextAligmentMask;
-				switch (columnSettings.headerTextAlignment)
-				{
-					case TextAlignment.Left:
-						searchColumn.options |= SearchColumnFlags.TextAlignmentLeft;
-						break;
-					case TextAlignment.Center:
-						searchColumn.options |= SearchColumnFlags.TextAlignmentCenter;
-						break;
-					case TextAlignment.Right:
-						searchColumn.options |= SearchColumnFlags.TextAlignmentRight;
-						break;
-				}
-
-				SearchColumnSettings.Save(searchColumn);
-			}
-
-			public IEnumerable<SearchItem> GetElements()
-			{
-				return m_Items;
-			}
-
-			public IEnumerable<SearchColumn> GetColumns()
-			{
-				return state.tableConfig.columns;
-			}
-
-			public void SetDirty()
-			{
-			}
-		}
 
 		internal void OnEnable()
 		{
-			titleContent = new GUIContent("Dependency Viewer", EditorGUIUtility.LoadIcon("UnityEditor.FindDependencies"));
+			titleContent = new GUIContent("Dependency Viewer", Icons.dependencies);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
 			m_CurrentState = m_CurrentState ?? new DependencyViewerState("No Dependencies");
 			m_History = new List<DependencyViewerState>();
 			m_Splitter.host = this;
+			UpdateSelection();
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
-			EditorApplication.delayCall += UpdateSelection;
 		}
 
-		
 		List<DependencyTableView> BuildViews(DependencyViewerState state)
 		{
-			return state.states.Select(s => new DependencyTableView(s)).ToList();
+			return state.states.Select(s => new DependencyTableView(s, this)).ToList();
 		}
 
 		internal void OnDisable()
@@ -270,9 +314,7 @@ namespace UnityEditor.Search
 		{
 			m_CurrentState = state;
 			m_Views = BuildViews(m_CurrentState);
-			
-			titleContent.text = m_CurrentState.windowTitle;
-			titleContent.image = m_CurrentState.icon;
+			titleContent = m_CurrentState.GetWindowTitle();
 		}
 
 		void UpdateSelection()
@@ -315,7 +357,7 @@ namespace UnityEditor.Search
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabled();
-					GUILayout.Label(m_CurrentState.dependencyTitle);
+					GUILayout.Label(m_CurrentState.GetTitle(), GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
 					if (EditorGUILayout.DropdownButton(new GUIContent("Source"), FocusType.Passive))
 						OnSourceChange();
@@ -350,9 +392,10 @@ namespace UnityEditor.Search
 		{			
 			var menu = new GenericMenu();
 			foreach(var stateProvider in DependencyViewerStateAttribute.s_StateProviders)
-			{
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler(m_CurrentState)));
-			}
+
+			menu.AddSeparator("");
+			menu.AddItem(new GUIContent("Build"), false, () => Dependency.Build());
 			menu.ShowAsContext();
 		}
 
@@ -374,6 +417,24 @@ namespace UnityEditor.Search
 			var win = CreateWindow<DependencyViewer>();
 			win.position = Utils.GetMainWindowCenteredPosition(new Vector2(1000, 400));
 			win.Show();
+		}
+
+		[SearchExpressionEvaluator]
+		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
+		{
+			return TaskEvaluatorManager.EvaluateMainThread<SearchItem>(CreateItemsFromSelection);
+		}
+
+		private static void CreateItemsFromSelection(Action<SearchItem> yielder)
+		{
+			foreach (var obj in UnityEditor.Selection.objects)
+			{
+				var assetPath = AssetDatabase.GetAssetPath(obj);
+				if (!string.IsNullOrEmpty(assetPath))
+					yielder(EvaluatorUtils.CreateItem(assetPath));
+				else
+					yielder(EvaluatorUtils.CreateItem(obj.GetInstanceID()));
+			}
 		}
 	}
 }

@@ -10,6 +10,7 @@ using UnityEditor.Search;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using System.Threading;
 
 // Syntax:
 // all           => Yield all results
@@ -37,6 +38,7 @@ static class Dependency
 
 	readonly static ConcurrentDictionary<string, string> guidToPathMap = new ConcurrentDictionary<string, string>();
 	readonly static ConcurrentDictionary<string, string> pathToGuidMap = new ConcurrentDictionary<string, string>();
+	readonly static ConcurrentDictionary<string, string> aliasesToPathMap = new ConcurrentDictionary<string, string>();
 	readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidToRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 	readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidFromRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 	readonly static Dictionary<string, int> guidToDocMap = new Dictionary<string, int>();
@@ -58,9 +60,10 @@ static class Dependency
 	}
 
 	[MenuItem("Window/Search/Rebuild dependency index", priority = 5677)]
-	static void Build()
+	public static void Build()
 	{
 		pathToGuidMap.Clear();
+		aliasesToPathMap.Clear();
 		guidToPathMap.Clear();
 		guidToRefsMap.Clear();
 		guidFromRefsMap.Clear();
@@ -90,7 +93,7 @@ static class Dependency
 		var obj = Selection.activeObject;
 		if (!obj)
 			return;
-		EditorGUIUtility.systemCopyBuffer = AssetDatabase.GetAssetPath(obj);
+		EditorGUIUtility.systemCopyBuffer = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(obj));
 	}
 
 	[MenuItem("Assets/(depends) Find Usings (from)")]
@@ -180,38 +183,16 @@ static class Dependency
 		index.Start();
 		int completed = 0;
 		var metaFiles = Directory.GetFiles("Assets", "*.meta", SearchOption.AllDirectories);
+		var totalCount = metaFiles.Length;
 		var progressId = Progress.Start($"Scanning dependencies ({metaFiles.Length} assets)");
+		Parallel.ForEach(metaFiles, (mf) => ProcessAsset(mf, progressId, ref completed, totalCount));
+		Progress.Finish(progressId, Progress.Status.Succeeded);
 
-		Parallel.ForEach(metaFiles, mf =>
-		{
-			Progress.Report(progressId, completed / (float)metaFiles.Length, mf);
-			var assetPath = mf.Replace("\\", "/").Substring(0, mf.Length - 5).ToLowerInvariant();
-			if (!File.Exists(assetPath))
-				return;
-
-			var guid = ToGuid(assetPath);
-			Progress.Report(progressId, completed / (float)metaFiles.Length, assetPath);
-
-			TrackGuid(guid);
-			pathToGuidMap.TryAdd(assetPath, guid);
-			guidToPathMap.TryAdd(guid, assetPath);
-
-			var mfc = File.ReadAllText(mf);
-			ScanDependencies(guid, mfc);
-
-			using (var file = new StreamReader(assetPath))
-			{
-				var header = new char[5];
-				if (file.ReadBlock(header, 0, header.Length) == header.Length &&
-					header[0] == '%' && header[1] == 'Y' && header[2] == 'A' && header[3] == 'M' && header[4] == 'L')
-				{
-					var ac = file.ReadToEnd();
-					ScanDependencies(guid, ac);
-				}
-			}
-
-			Progress.Report(progressId, ++completed / (float)metaFiles.Length);
-		});
+		var scriptPaths = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
+		completed = 0;
+		totalCount = scriptPaths.Length;
+		progressId = Progress.Start($"Indexing weak dependencies");
+		Parallel.ForEach(scriptPaths, (path, state, index) => ProcessScript(path.Replace("\\", "/"), progressId, ref completed, totalCount));
 		Progress.Finish(progressId, Progress.Status.Succeeded);
 
 		completed = 0;
@@ -226,7 +207,7 @@ static class Dependency
 			if (ext.Length > 0 && ext[0] == '.')
 				ext = ext.Substring(1);
 
-			Progress.Report(progressId, completed++ / (float)total, path);
+			Progress.Report(progressId, completed++, total, path);
 
 			var di = AddGuid(guid);
 
@@ -245,7 +226,7 @@ static class Dependency
 			var di = AddGuid(guid);
 			index.AddWord(guid, guid.Length, 0, di);
 
-			Progress.Report(progressId, completed++ / (float)total, guid);
+			Progress.Report(progressId, completed++, total, guid);
 
 			index.AddNumber("out", refs.Count, 0, di);
 			foreach (var r in refs)
@@ -262,7 +243,7 @@ static class Dependency
 			var refs = kvp.Value.Keys;
 			var di = AddGuid(guid);
 
-			Progress.Report(progressId, completed++ / (float)total, guid);
+			Progress.Report(progressId, completed++, total, guid);
 
 			index.AddNumber("in", refs.Count, 0, di);
 			foreach (var r in refs)
@@ -300,6 +281,7 @@ static class Dependency
 			}
 		}
 
+		Progress.Report(progressId, -1f);
 		Progress.SetDescription(progressId, $"Saving dependency index at {dependencyIndexLibraryPath}");
 
 		index.Finish((bytes) =>
@@ -310,6 +292,75 @@ static class Dependency
 			Debug.Log($"Dependency indexing took {sw.Elapsed.TotalMilliseconds,3:0.##} ms " +
 				$"and was saved at {dependencyIndexLibraryPath} ({EditorUtility.FormatBytes(bytes.Length)} bytes)");
 		}, removedDocuments: null);
+	}
+
+	private static void ProcessAsset(string mf, int progressId, ref int completed, int totalCount)
+	{
+		Interlocked.Increment(ref completed);
+		var assetPath = mf.Replace("\\", "/").Substring(0, mf.Length - 5).ToLowerInvariant();
+		if (!File.Exists(assetPath))
+			return;
+
+		var guid = ToGuid(assetPath);
+		Progress.Report(progressId, completed, totalCount, assetPath);
+
+		TrackGuid(guid);
+		pathToGuidMap.TryAdd(assetPath, guid);
+		guidToPathMap.TryAdd(guid, assetPath);
+
+		var dir = Path.GetDirectoryName(assetPath).ToLowerInvariant();
+		var name = Path.GetFileNameWithoutExtension(assetPath).ToLowerInvariant();
+		var ext = Path.GetExtension(assetPath).ToLowerInvariant();
+		aliasesToPathMap.TryAdd(assetPath.ToLowerInvariant(), guid);
+		aliasesToPathMap.TryAdd(name, guid);
+		aliasesToPathMap.TryAdd(name+ext, guid);
+		aliasesToPathMap.TryAdd(dir+"/"+name, guid);
+
+		var mfc = File.ReadAllText(mf);
+		ScanDependencies(guid, mfc);
+
+		using (var file = new StreamReader(assetPath))
+		{
+			var header = new char[5];
+			if (file.ReadBlock(header, 0, header.Length) == header.Length &&
+				header[0] == '%' && header[1] == 'Y' && header[2] == 'A' && header[3] == 'M' && header[4] == 'L')
+			{
+				var ac = file.ReadToEnd();
+				ScanDependencies(guid, ac);
+			}
+		}
+	}
+
+	private static void ProcessScript(string path, int progressId, ref int completed, int totalCount)
+	{
+		Interlocked.Increment(ref completed);
+		Progress.Report(progressId, completed, totalCount, path);
+
+		var scriptGuid = ToGuid(path);
+		if (string.IsNullOrEmpty(scriptGuid))
+			return;
+		int lineIndex = 1;
+		var re = new Regex(@"""[\w\/\-\s\.]+""");
+		foreach (var line in File.ReadLines(path))
+		{
+			var matches = re.Matches(line);
+			foreach (Match m in matches)
+			{
+				var parsedValue = m.Value.ToLowerInvariant().Trim('"');
+				if (aliasesToPathMap.TryGetValue(parsedValue, out var guid) && !string.Equals(guid, scriptGuid))
+				{
+					guidToRefsMap[scriptGuid].TryAdd(guid, 1);
+					guidFromRefsMap[guid].TryAdd(scriptGuid, 1);
+				}
+
+				if (guidToPathMap.TryGetValue(parsedValue.Replace("-", ""), out _))
+				{
+					guidToRefsMap[scriptGuid].TryAdd(parsedValue, 1);
+					guidFromRefsMap[parsedValue].TryAdd(scriptGuid, 1);
+				}
+			}
+			lineIndex++;
+		}
 	}
 
 	static void IndexWordComponents(int documentIndex, string word)
@@ -370,6 +421,9 @@ static class Dependency
 
 	static string ToGuid(string assetPath)
 	{
+		if (pathToGuidMap.TryGetValue(assetPath, out var guid))
+			return guid;
+
 		string metaFile = $"{assetPath}.meta";
 		if (!File.Exists(metaFile))
 			return null;
