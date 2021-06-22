@@ -34,7 +34,7 @@ namespace UnityEditor.Search
 				try
 				{
 					var attr = mi.GetCustomAttributes(typeof(DependencyViewerStateAttribute), false).Cast<DependencyViewerStateAttribute>().First();
-					attr.handler = Delegate.CreateDelegate(typeof(Func<DependencyViewerState, DependencyViewerState>), mi) as Func<DependencyViewerState, DependencyViewerState>;
+					attr.handler = Delegate.CreateDelegate(typeof(Func<DependencyViewerState>), mi) as Func<DependencyViewerState>;
 					attr.name = attr.name ?? ObjectNames.NicifyVariableName(mi.Name);
 					m_StateProviders.Add(attr);
 				}
@@ -46,7 +46,7 @@ namespace UnityEditor.Search
 		}
 
 		public string name;
-		public Func<DependencyViewerState, DependencyViewerState> handler;
+		public Func<DependencyViewerState> handler;
 		public DependencyViewerStateAttribute(string name = null)
 		{
 			this.name = name;
@@ -280,13 +280,13 @@ namespace UnityEditor.Search
 
 		int m_HistoryCursor = -1;
 		List<DependencyViewerState> m_History;
-		List<DependencyTableView> m_Views;				
+		List<DependencyTableView> m_Views;
 
 		internal void OnEnable()
 		{
 			titleContent = new GUIContent("Dependency Viewer", Icons.dependencies);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_CurrentState = m_CurrentState ?? DependencyBuiltinStates.TrackSelection(m_CurrentState);
+			m_CurrentState = m_CurrentState ?? DependencyBuiltinStates.TrackSelection();
 			m_History = new List<DependencyViewerState>();
 			m_Splitter.host = this;
 			PushViewerState(m_CurrentState);
@@ -320,7 +320,7 @@ namespace UnityEditor.Search
 
 		void UpdateSelection()
 		{
-			PushViewerState(DependencyBuiltinStates.TrackSelection(m_CurrentState));
+			PushViewerState(DependencyBuiltinStates.TrackSelection());
 			Repaint();
 		}
 
@@ -390,7 +390,7 @@ namespace UnityEditor.Search
 		{			
 			var menu = new GenericMenu();
 			foreach(var stateProvider in DependencyViewerStateAttribute.s_StateProviders)
-				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler(m_CurrentState)));
+				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler()));
 
 			menu.AddSeparator("");
 			menu.AddItem(new GUIContent("Build"), false, () => Dependency.Build());

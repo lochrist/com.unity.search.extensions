@@ -6,7 +6,7 @@ namespace UnityEditor.Search
 	static class DependencyBuiltinStates
 	{
 		[DependencyViewerState]
-		public static DependencyViewerState TrackSelection(DependencyViewerState previousState)
+		public static DependencyViewerState TrackSelection()
 		{
 			if (Selection.objects.Length == 0)
 				return new DependencyViewerState("No Selection");
@@ -27,15 +27,13 @@ namespace UnityEditor.Search
 			var providers = new[] { "expression", "dep" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
 			return new DependencyViewerState("Selection", globalObjectIds, new[] {
-				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"),
-					previousState != null && previousState.states.Count >= 1 ? previousState.states[0].tableConfig : null),
-				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"),
-					previousState != null && previousState.states.Count >= 2 ? previousState.states[1].tableConfig : null)
+				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]")),
+				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"))
 			});
 		}
 
 		[DependencyViewerState]
-		internal static DependencyViewerState BrokenDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState BrokenDependencies()
 		{
 			var state = new DependencyViewerState("Broken dependencies");
 			state.states.Add(new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken")));
@@ -43,7 +41,7 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		internal static DependencyViewerState MissingDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState MissingDependencies()
 		{
 			var state = new DependencyViewerState("Missing dependencies");
 			state.states.Add(new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing")));
@@ -51,15 +49,16 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		static DependencyViewerState MostUsedAssets(DependencyViewerState previousState)
+		static DependencyViewerState MostUsedAssets()
 		{
 			var state = new DependencyViewerState("Most Used Assets");
 
 			var defaultDepFlags = SearchColumnFlags.CanSort;
-			var tableConfig = new SearchTable(Guid.NewGuid().ToString("N"), "Name", new[] {
-				new SearchColumn("Name", "Label", "label", null, defaultDepFlags)
+			var tableConfig = new SearchTable(System.Guid.NewGuid().ToString("N"), "Name", new[] {
+				new SearchColumn("Name", "label", "name", null, defaultDepFlags),
+				new SearchColumn("Count", "value", null, defaultDepFlags)
 			});
-			var tableState = new DependencyState("Most Used Assets", SearchService.CreateContext("dep,expression,asset", "first{25, sort{count{...to=select{a:assets, @path}}, @value, desc}}"), tableConfig);
+			var tableState = new DependencyState("Most Used Assets", SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:to=\"@path\"}}, @value, desc}}"), tableConfig);
 			state.states.Add(tableState);
 			return state;
 		}
