@@ -7,6 +7,113 @@ using System.Linq;
 
 namespace UnityEditor.Search
 {
+	[AttributeUsage(AttributeTargets.Method)]
+	class DependencyViewerStateAttribute : Attribute
+	{
+		static List<DependencyViewerStateAttribute> m_StateProviders;
+		public static IEnumerable<DependencyViewerStateAttribute> s_StateProviders
+		{
+			get
+			{
+				if (m_StateProviders == null)
+					FetchStateProviders();
+				return m_StateProviders;
+			}
+		}
+		static void FetchStateProviders()
+		{
+			m_StateProviders = new List<DependencyViewerStateAttribute>();
+			var methods = TypeCache.GetMethodsWithAttribute<DependencyViewerStateAttribute>();
+			foreach(var mi in methods)
+			{
+				try
+				{
+					var attr = mi.GetCustomAttributes(typeof(DependencyViewerStateAttribute), false).Cast<DependencyViewerStateAttribute>().First();
+					attr.handler = Delegate.CreateDelegate(typeof(Func<DependencyViewerState, DependencyViewerState>), mi) as Func<DependencyViewerState, DependencyViewerState>;
+					attr.name = attr.name ?? ObjectNames.NicifyVariableName(mi.Name);
+					m_StateProviders.Add(attr);
+				}
+				catch(Exception e)
+				{
+					Debug.LogError($"Cannot register State provider: {mi.Name}");
+				}				
+			}
+		}
+
+		public string name;
+		public Func<DependencyViewerState, DependencyViewerState> handler;
+		public DependencyViewerStateAttribute(string name = null)
+		{
+			this.name = name;
+		}
+	}
+
+	[Serializable]
+	class DependencyState : ISerializationCallbackReceiver
+	{
+		[SerializeField] private string m_Name;
+		[SerializeField] private SearchQuery m_Query;
+		[NonSerialized] private SearchTable m_TableConfig;
+
+		public string guid => m_Query.guid;
+		public SearchContext context => m_Query.viewState.context;
+		public SearchTable tableConfig => m_TableConfig;
+
+		public DependencyState(string name, SearchContext context, SearchTable tableConfig = null)
+		{
+			m_Name = name;
+			m_TableConfig = tableConfig ?? new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
+			m_Query = new SearchQuery()
+			{
+				name = name,
+				viewState = new SearchViewState(context),
+				displayName = name,
+				tableConfig = m_TableConfig
+			};
+		}
+
+		private IEnumerable<SearchColumn> GetDefaultColumns()
+		{
+			var defaultDepFlags = SearchColumnFlags.CanSort;
+			yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
+			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
+			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
+			yield return new SearchColumn("Used #", "usedByCount", null, defaultDepFlags);
+		}
+
+		public void Dispose()
+		{
+			m_Query.viewState?.context?.Dispose();
+		}
+
+		public void OnBeforeSerialize()
+		{
+		}
+
+		public void OnAfterDeserialize()
+		{
+			if (m_TableConfig == null)
+				m_TableConfig = m_Query.tableConfig;
+			m_TableConfig?.InitFunctors();
+		}
+	}
+
+	[Serializable]
+	class DependencyViewerState
+	{
+		public string dependencyTitle;
+		public string windowTitle;
+		public Texture2D icon;
+		public List<DependencyState> states;
+
+		public DependencyViewerState(string title, IEnumerable<DependencyState> states = null)
+		{
+			dependencyTitle = title;
+			windowTitle = title;
+			this.states = states != null ? states.ToList() : new List<DependencyState>();
+		}
+	}
+
 	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
 	class DependencyViewer : EditorWindow
 	{
@@ -32,74 +139,7 @@ namespace UnityEditor.Search
 		[SerializeField] DependencyViewerState m_CurrentState;
 		List<DependencyViewerState> m_History;
 		int m_HistoryCursor = -1;
-		List<DependencyTableView> m_Views;
-
-		[Serializable]
-		class DependencyViewerState
-		{
-			public string dependencyTitle;
-			public string windowTitle;
-			public Texture2D icon;
-			public List<DependencyState> states;
-
-			public DependencyViewerState(string title, IEnumerable<DependencyState> states = null)
-			{
-				dependencyTitle = title;
-				windowTitle = title;
-				this.states = states != null ? states.ToList() : new List<DependencyState>();
-			}
-		}
-
-		[Serializable]
-		class DependencyState : ISerializationCallbackReceiver
-		{
-			[SerializeField] private string m_Name;
-			[SerializeField] private SearchQuery m_Query;
-			[NonSerialized] private SearchTable m_TableConfig;
-
-			public string guid => m_Query.guid;
-			public SearchContext context => m_Query.viewState.context;
-			public SearchTable tableConfig => m_TableConfig;
-
-			public DependencyState(string name, SearchContext context, SearchTable tableConfig)
-			{				
-				m_Name = name;				
-				m_TableConfig = tableConfig ?? new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
-				m_Query = new SearchQuery()
-				{
-					name = name,
-					viewState = new SearchViewState(context),
-					displayName = name,
-					tableConfig = m_TableConfig
-				};
-			}
-
-			private IEnumerable<SearchColumn> GetDefaultColumns()
-			{
-				var defaultDepFlags = SearchColumnFlags.CanSort;
-				yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
-				yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
-				yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
-				yield return new SearchColumn("Used #", "usedByCount", null, defaultDepFlags);
-			}
-
-			public void Dispose()
-			{
-				m_Query.viewState?.context?.Dispose();
-			}
-
-			public void OnBeforeSerialize()
-			{
-			}
-
-			public void OnAfterDeserialize()
-			{
-				if (m_TableConfig == null)
-					m_TableConfig = m_Query.tableConfig;
-				m_TableConfig?.InitFunctors();
-			}
-		}
-
+		List<DependencyTableView> m_Views;				
 		
 		class DependencyTableView : ITableView
 		{
@@ -201,45 +241,7 @@ namespace UnityEditor.Search
 			EditorApplication.delayCall += UpdateSelection;
 		}
 
-		static DependencyViewerState BuildSelectionTrackingState(DependencyViewerState previousState)
-		{
-			if (UnityEditor.Selection.objects.Length == 0)
-				return new DependencyViewerState("No Selection");
-
-			var selectedPaths = new List<string>();
-			var singleAssetPath = "";
-			foreach (var obj in UnityEditor.Selection.objects)
-			{
-				var assetPath = AssetDatabase.GetAssetPath(obj);
-				if (!string.IsNullOrEmpty(assetPath))
-				{
-					selectedPaths.Add("\"" + assetPath + "\"");
-					if (singleAssetPath == "")
-						singleAssetPath = assetPath;
-				}
-				else
-					selectedPaths.Add(obj.GetInstanceID().ToString());
-			}
-
-			var providers = new[] { "expression", "dep" };
-			var selectedPathsStr = string.Join(",", selectedPaths);
-			var title = System.IO.Path.GetFileNameWithoutExtension(singleAssetPath);
-			if (UnityEditor.Selection.objects.Length > 1)
-			{								
-				title = $"{UnityEditor.Selection.objects.Length} Objects selected";
-			}
-
-			var state = new DependencyViewerState(title, new [] {
-				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"),
-					previousState != null && previousState.states.Count >= 1 ? previousState.states[0].tableConfig : null),
-				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"),
-					previousState != null && previousState.states.Count >= 2 ? previousState.states[1].tableConfig : null)
-			});
-			if (singleAssetPath != "")
-				state.icon = AssetDatabase.GetCachedIcon(singleAssetPath) as Texture2D;
-			return state;
-		}
-
+		
 		List<DependencyTableView> BuildViews(DependencyViewerState state)
 		{
 			return state.states.Select(s => new DependencyTableView(s)).ToList();
@@ -269,13 +271,18 @@ namespace UnityEditor.Search
 
 		void UpdateSelection()
 		{
-			SetViewerState(BuildSelectionTrackingState(m_CurrentState));
+			PushViewerState(DependencyBuiltinStates.TrackSelection(m_CurrentState));
+			Repaint();
+		}
+
+		void PushViewerState(DependencyViewerState state)
+		{
+			SetViewerState(state);
 			if (m_CurrentState.states.Count != 0)
 			{
 				m_History.Add(m_CurrentState);
 				m_HistoryCursor = m_History.Count - 1;
 			}
-			Repaint();
 		}
 
 		internal void OnGUI()
@@ -297,17 +304,20 @@ namespace UnityEditor.Search
 					EditorGUI.EndDisabled();
 					GUILayout.Label(m_CurrentState.dependencyTitle);
 					GUILayout.FlexibleSpace();
+					if (EditorGUILayout.DropdownButton(new GUIContent("Source"), FocusType.Passive))
+						OnSourceChange();
 				}
 
 				if (m_Views != null && m_Views.Count >= 1)
 				{
 					EditorGUILayout.BeginHorizontal();
-					var treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1)));
-					m_Splitter.Draw(evt, treeViewRect);
+					var treeViewRect = m_Views.Count >= 2 ?
+						EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1))) :
+						EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true));
 					m_Views[0].OnGUI(treeViewRect);
-
 					if (m_Views.Count >= 2)
 					{
+						m_Splitter.Draw(evt, treeViewRect);
 						treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
 						m_Views[1].OnGUI(treeViewRect);
 
@@ -323,6 +333,16 @@ namespace UnityEditor.Search
 			}
 		}
 
+		private void OnSourceChange()
+		{			
+			var menu = new GenericMenu();
+			foreach(var stateProvider in DependencyViewerStateAttribute.s_StateProviders)
+			{
+				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler(m_CurrentState)));
+			}
+			menu.ShowAsContext();
+		}
+
 		private void GotoNextStates()
 		{
 			SetViewerState(m_History[++m_HistoryCursor]);
@@ -334,8 +354,6 @@ namespace UnityEditor.Search
 			SetViewerState(m_History[--m_HistoryCursor]);
 			Repaint();
 		}
-
-
 
 		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
 		public static void OpenNew()
