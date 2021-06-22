@@ -639,6 +639,7 @@ static class Dependency
 	static void TrackSelection(SearchItem item, SearchContext context)
 	{
 		EditorGUIUtility.systemCopyBuffer = item.id;
+		Utils.PingAsset(AssetDatabase.GUIDToAssetPath(item.id));
 	}
 
 	static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)

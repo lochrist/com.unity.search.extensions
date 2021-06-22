@@ -139,9 +139,15 @@ namespace UnityEditor.Search
 			public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
 			public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
 			public SearchTable GetSearchTable() => throw new NotImplementedException();
-			public void SetSelection(IEnumerable<SearchItem> items) => Debug.LogWarning("SetSelection");
 			public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn) => throw new NotImplementedException();
 			public bool OpenContextualMenu(Event evt, SearchItem item) => throw new NotImplementedException();
+
+			public void SetSelection(IEnumerable<SearchItem> items)
+			{
+				var firstItem = items.FirstOrDefault();
+				if (firstItem != null)
+					Utils.PingAsset(SearchUtils.GetAssetPath(firstItem));
+			}
 
 			public void UpdateColumnSettings(int columnIndex, MultiColumnHeaderState.Column columnSettings)
 			{
