@@ -28,13 +28,27 @@ namespace UnityEditor.Search
 			}
 		}
 
-		[SerializeField] string m_SearchText;
 		[SerializeField] SplitterInfo m_Splitter;
+		[SerializeField] DependencyViewerState m_CurrentState;
+		List<DependencyViewerState> m_History;
+		int m_HistoryCursor = -1;
+		List<DependencyTableView> m_Views;
 
-		[SerializeField] List<DependencyState> m_States;
-		[NonSerialized] List<List<DependencyState>> m_History;
-		[NonSerialized] int m_HistoryCursor = -1;
-		[NonSerialized] List<DependencyView> m_Views;
+		[Serializable]
+		class DependencyViewerState
+		{
+			public string dependencyTitle;
+			public string windowTitle;
+			public Texture2D icon;
+			public List<DependencyState> states;
+
+			public DependencyViewerState(string title, IEnumerable<DependencyState> states = null)
+			{
+				dependencyTitle = title;
+				windowTitle = title;
+				this.states = states != null ? states.ToList() : new List<DependencyState>();
+			}
+		}
 
 		[Serializable]
 		class DependencyState : ISerializationCallbackReceiver
@@ -47,20 +61,9 @@ namespace UnityEditor.Search
 			public SearchContext context => m_Query.viewState.context;
 			public SearchTable tableConfig => m_TableConfig;
 
-			public DependencyState(string name, string filter, SearchTable tableConfig)
-			{
-				var selectedPaths = new List<string>();
-				foreach (var obj in UnityEditor.Selection.objects)
-				{
-					var assetPath = AssetDatabase.GetAssetPath(obj);
-					if (!string.IsNullOrEmpty(assetPath))
-						selectedPaths.Add("\"" + assetPath + "\"");
-					else
-						selectedPaths.Add(obj.GetInstanceID().ToString());
-				}
-
-				m_Name = name;
-				var context = SearchService.CreateContext(new [] { "expression", "dep" }, $"{filter}=[{string.Join(",", selectedPaths)}]");
+			public DependencyState(string name, SearchContext context, SearchTable tableConfig)
+			{				
+				m_Name = name;				
 				m_TableConfig = tableConfig ?? new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
 				m_Query = new SearchQuery()
 				{
@@ -97,7 +100,8 @@ namespace UnityEditor.Search
 			}
 		}
 
-		class DependencyView : ITableView
+		
+		class DependencyTableView : ITableView
 		{
 			public string filter;
 			public PropertyTable table;
@@ -107,7 +111,7 @@ namespace UnityEditor.Search
 
 			public SearchContext context => state.context;
 
-			public DependencyView(DependencyState state)
+			public DependencyTableView(DependencyState state)
 			{
 				this.state = state;
 				m_Items = new HashSet<SearchItem>();
@@ -189,29 +193,56 @@ namespace UnityEditor.Search
 		internal void OnEnable()
 		{
 			titleContent = new GUIContent("Dependency Viewer", EditorGUIUtility.LoadIcon("UnityEditor.FindDependencies"));
-			m_SearchText = m_SearchText ?? AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_History = new List<List<DependencyState>>();
+			m_CurrentState = m_CurrentState ?? new DependencyViewerState("No Dependencies");
+			m_History = new List<DependencyViewerState>();
 			m_Splitter.host = this;
-			UpdateSelection();
-			
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
+			EditorApplication.delayCall += UpdateSelection;
 		}
 
-		List<DependencyState> BuildStates(List<DependencyState> previousStates = null)
+		static DependencyViewerState BuildSelectionTrackingState(DependencyViewerState previousState)
 		{
 			if (UnityEditor.Selection.objects.Length == 0)
-				return new List<DependencyState>();
-			return new List<DependencyState>()
+				return new DependencyViewerState("No Selection");
+
+			var selectedPaths = new List<string>();
+			var singleAssetPath = "";
+			foreach (var obj in UnityEditor.Selection.objects)
 			{
-				new DependencyState("Uses", "from", previousStates != null && previousStates.Count >= 1 ? previousStates[0].tableConfig : null),
-				new DependencyState("Used By", "to", previousStates != null && previousStates.Count >= 2 ? previousStates[1].tableConfig : null)
-			};
+				var assetPath = AssetDatabase.GetAssetPath(obj);
+				if (!string.IsNullOrEmpty(assetPath))
+				{
+					selectedPaths.Add("\"" + assetPath + "\"");
+					if (singleAssetPath == "")
+						singleAssetPath = assetPath;
+				}
+				else
+					selectedPaths.Add(obj.GetInstanceID().ToString());
+			}
+
+			var providers = new[] { "expression", "dep" };
+			var selectedPathsStr = string.Join(",", selectedPaths);
+			var title = System.IO.Path.GetFileNameWithoutExtension(singleAssetPath);
+			if (UnityEditor.Selection.objects.Length > 1)
+			{								
+				title = $"{UnityEditor.Selection.objects.Length} Objects selected";
+			}
+
+			var state = new DependencyViewerState(title, new [] {
+				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"),
+					previousState != null && previousState.states.Count >= 1 ? previousState.states[0].tableConfig : null),
+				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"),
+					previousState != null && previousState.states.Count >= 2 ? previousState.states[1].tableConfig : null)
+			});
+			if (singleAssetPath != "")
+				state.icon = AssetDatabase.GetCachedIcon(singleAssetPath) as Texture2D;
+			return state;
 		}
 
-		List<DependencyView> BuildViews(IEnumerable<DependencyState> states)
+		List<DependencyTableView> BuildViews(DependencyViewerState state)
 		{
-			return states.Select(s => new DependencyView(s)).ToList();
+			return state.states.Select(s => new DependencyTableView(s)).ToList();
 		}
 
 		internal void OnDisable()
@@ -227,23 +258,24 @@ namespace UnityEditor.Search
 			Repaint();
 		}
 
+		private void SetViewerState(DependencyViewerState state)
+		{
+			m_CurrentState = state;
+			m_Views = BuildViews(m_CurrentState);
+			
+			titleContent.text = m_CurrentState.windowTitle;
+			titleContent.image = m_CurrentState.icon;
+		}
+
 		void UpdateSelection()
 		{
-			var currentTableConfig = m_States != null && m_States.Count > 0 ? m_States[0].tableConfig.Clone() : null;
-			m_SearchText = AssetDatabase.GetAssetPath(UnityEditor.Selection.activeObject);
-			m_States = BuildStates(m_States);
-			if (m_States.Count != 0)
+			SetViewerState(BuildSelectionTrackingState(m_CurrentState));
+			if (m_CurrentState.states.Count != 0)
 			{
-				m_History.Add(m_States);
+				m_History.Add(m_CurrentState);
 				m_HistoryCursor = m_History.Count - 1;
-				m_Views = BuildViews(m_States);
 			}
-
-			if (!string.IsNullOrEmpty(m_SearchText))
-			{
-				titleContent.text = System.IO.Path.GetFileNameWithoutExtension(m_SearchText);
-				titleContent.image = AssetDatabase.GetCachedIcon(m_SearchText);
-			}
+			Repaint();
 		}
 
 		internal void OnGUI()
@@ -263,7 +295,7 @@ namespace UnityEditor.Search
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabled();
-					GUILayout.Label(m_SearchText);
+					GUILayout.Label(m_CurrentState.dependencyTitle);
 					GUILayout.FlexibleSpace();
 				}
 
@@ -293,17 +325,17 @@ namespace UnityEditor.Search
 
 		private void GotoNextStates()
 		{
-			m_States = m_History[++m_HistoryCursor];
-			m_Views = BuildViews(m_States);
+			SetViewerState(m_History[++m_HistoryCursor]);
 			Repaint();
 		}
 
 		private void GotoPrevStates()
 		{
-			m_States = m_History[--m_HistoryCursor];
-			m_Views = BuildViews(m_States);
+			SetViewerState(m_History[--m_HistoryCursor]);
 			Repaint();
 		}
+
+
 
 		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
 		public static void OpenNew()
