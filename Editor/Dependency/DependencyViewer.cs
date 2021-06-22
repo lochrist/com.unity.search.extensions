@@ -106,19 +106,21 @@ namespace UnityEditor.Search
 	[Serializable]
 	class DependencyViewerState
 	{
+		public string status;
 		public List<DependencyState> states;
 		public List<string> globalIds;
 		[SerializeField] private GUIContent title;
 		[SerializeField] private GUIContent windowTitle;
 
 		public DependencyViewerState(string status)
-				: this(new List<string>(), new List<DependencyState>())
+				: this(status, new List<string>(), new List<DependencyState>())
 		{
 			title = new GUIContent(status);
 		}
 
-		public DependencyViewerState(List<string> globalIds, IEnumerable<DependencyState> states)
+		public DependencyViewerState(string status, List<string> globalIds, IEnumerable<DependencyState> states)
 		{
+			this.status = status;
 			this.globalIds = globalIds ?? new List<string>();
 			this.states = states != null ? states.ToList() : new List<DependencyState>();
 		}
@@ -359,7 +361,7 @@ namespace UnityEditor.Search
 					EditorGUI.EndDisabled();
 					GUILayout.Label(m_CurrentState.GetTitle(), GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
-					if (EditorGUILayout.DropdownButton(new GUIContent("Source"), FocusType.Passive))
+					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.status ?? "Source"), FocusType.Passive))
 						OnSourceChange();
 				}
 

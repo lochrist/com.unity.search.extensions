@@ -26,7 +26,7 @@ namespace UnityEditor.Search
 
 			var providers = new[] { "expression", "dep" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
-			return new DependencyViewerState(globalObjectIds, new[] {
+			return new DependencyViewerState("Selection", globalObjectIds, new[] {
 				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"),
 					previousState != null && previousState.states.Count >= 1 ? previousState.states[0].tableConfig : null),
 				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"),
@@ -35,7 +35,7 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		static DependencyViewerState GetBrokenDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState GetBrokenDependencies(DependencyViewerState previousState)
 		{
 			var state = new DependencyViewerState("Broken dependencies");
 			state.states.Add(new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken")));
@@ -43,7 +43,7 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerState]
-		static DependencyViewerState GetMissingDependencies(DependencyViewerState previousState)
+		internal static DependencyViewerState GetMissingDependencies(DependencyViewerState previousState)
 		{
 			var state = new DependencyViewerState("Missing dependencies");
 			state.states.Add(new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing")));
