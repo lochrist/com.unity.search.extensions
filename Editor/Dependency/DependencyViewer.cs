@@ -117,6 +117,11 @@ namespace UnityEditor.Search
 	[EditorWindowTitle(icon = "UnityEditor.FindDependencies", title ="Dependency Viewer")]
 	class DependencyViewer : EditorWindow
 	{
+		static class Styles
+		{
+			public static GUIStyle lockButton = "IN LockButton";
+		}
+
 		[SearchExpressionEvaluator]
 		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
 		{
@@ -135,6 +140,7 @@ namespace UnityEditor.Search
 			}
 		}
 
+		[SerializeField] bool m_LockSelection;
 		[SerializeField] SplitterInfo m_Splitter;
 		[SerializeField] DependencyViewerState m_CurrentState;
 		List<DependencyViewerState> m_History;
@@ -254,7 +260,7 @@ namespace UnityEditor.Search
 
 		private void OnSelectionChanged()
 		{
-			if (UnityEditor.Selection.objects.Length == 0)
+			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection)
 				return;
 			UpdateSelection();
 			Repaint();
@@ -292,8 +298,15 @@ namespace UnityEditor.Search
 
 			using (new EditorGUILayout.VerticalScope(GUIStyle.none, GUILayout.ExpandHeight(true)))
 			{
-				using (new GUILayout.HorizontalScope(Styles.searchReportField))
+				using (new GUILayout.HorizontalScope(UnityEditor.Search.Styles.searchReportField))
 				{
+					EditorGUI.BeginChangeCheck();
+					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
+					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
+					{
+						OnSelectionChanged();
+					}
+
 					EditorGUI.BeginDisabled(m_HistoryCursor <= 0);
 					if (GUILayout.Button("<"))
 						GotoPrevStates();
