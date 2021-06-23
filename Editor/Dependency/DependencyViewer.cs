@@ -230,6 +230,23 @@ namespace UnityEditor.Search
 			}
 		}
 
+		Texture GetIcon()
+		{
+			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
+				return Icons.dependencies;
+			return AssetDatabase.GetCachedIcon(AssetDatabase.GUIDToAssetPath(gid.m_AssetGUID)) ?? Icons.dependencies;
+		}
+
+		Texture GetPreview()
+		{
+			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
+				return Icons.dependencies;
+			var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
+			return AssetPreview.GetAssetPreview(obj)
+				?? AssetPreview.GetAssetPreviewFromGUID(gid.assetGUID.ToString())
+				?? Icons.dependencies;
+		}
+
 		IEnumerable<string> EnumeratePaths()
 		{
 			if (globalIds == null || globalIds.Count == 0)
