@@ -232,7 +232,7 @@ static class Dependency
 			index.AddNumber("out", refs.Count, 0, di);
 			foreach (var r in refs)
 			{
-				AddStaticProperty("ref", r, di);
+				AddStaticProperty("ref", r, di, exact: true);
 				if (guidToPathMap.TryGetValue(r, out var toPath))
 					AddStaticProperty("ref", toPath, di, exact: true);
 			}
@@ -249,7 +249,7 @@ static class Dependency
 			index.AddNumber("in", refs.Count, 0, di);
 			foreach (var r in refs)
 			{
-				AddStaticProperty("from", r, di);
+				AddStaticProperty("from", r, di, exact: true);
 				if (guidToPathMap.TryGetValue(r, out var fromPath))
 					AddStaticProperty("from", fromPath, di, exact: true);
 			}
@@ -549,9 +549,9 @@ static class Dependency
 	internal static IEnumerable<SearchAction> ActionHandlers()
 	{
 		yield return SelectAsset();
-		yield return Goto("ref", "Show Uses References", "ref");
-		yield return Goto("from", "Show Used By Dependencies", "from");
-		yield return Goto("missing", "Show broken links", "is:missing from");
+		yield return Goto("Uses", "Show Used By Dependencies", "from");
+		yield return Goto("Used By", "Show Uses References", "ref");
+		yield return Goto("Missing", "Show broken links", "is:missing from");
 		yield return LogRefs();
 
 		if (SearchService.GetProvider("asset")?.active ?? false)
@@ -637,10 +637,18 @@ static class Dependency
 
 	static SearchAction Goto(string action, string title, string filter)
 	{
-		return new SearchAction(providerId, action, null, title, (SearchItem item) => item.context?.searchView?.SetSearchText($"dep: {filter}:{item.id}"))
+		return new SearchAction(providerId, action, null, title, item => Goto(item, filter)) { closeWindowAfterExecution = false };
+	}
+
+	private static void Goto(SearchItem item, string filter)
+	{
+		if (item.context != null && item.context.searchView != null)
+			item.context.searchView.SetSearchText($"dep: {filter}=\"{item.id}\"");
+		else
 		{
-			closeWindowAfterExecution = false
-		};
+			var searchContext = SearchService.CreateContext(providerId, $"{filter}=\"{item.id}\"");
+			SearchService.ShowWindow(searchContext, "Dependencies", saveFilters: false);
+		}
 	}
 
 	static bool ResolveAssetPath(string guid, out string path)

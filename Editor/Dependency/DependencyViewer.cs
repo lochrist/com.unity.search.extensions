@@ -5,8 +5,6 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using System.Linq;
 
-
-
 namespace UnityEditor.Search
 {
 	interface IDependencyViewHost
@@ -77,6 +75,8 @@ namespace UnityEditor.Search
 		public DependencyViewerState CreateState()
 		{
 			var state = handler();
+			if (state == null)
+				return null;
 			state.viewerProviderId = providerId;
 			return state;
 		}
@@ -441,6 +441,20 @@ namespace UnityEditor.Search
 		int m_HistoryCursor = -1;
 		List<DependencyViewerState> m_History;
 		List<DependencyTableView> m_Views;
+
+		[ShortcutManagement.Shortcut("dep_goto_prev_state", typeof(DependencyViewer), KeyCode.LeftArrow, ShortcutManagement.ShortcutModifiers.Alt)]
+		internal static void GotoPrev(ShortcutManagement.ShortcutArguments args)
+		{
+			if (args.context is DependencyViewer viewer)
+				viewer.GotoPrevStates();
+		}
+
+		[ShortcutManagement.Shortcut("dep_goto_next_state", typeof(DependencyViewer), KeyCode.RightArrow, ShortcutManagement.ShortcutModifiers.Alt)]
+		internal static void GotoNext(ShortcutManagement.ShortcutArguments args)
+		{
+			if (args.context is DependencyViewer viewer)
+				viewer.GotoNextStates();
+		}
 
 		internal void OnEnable()
 		{

@@ -21,7 +21,7 @@ namespace UnityEditor.Search
 		private static DependencyViewerState StateFromObjects(string stateName, IEnumerable<UnityEngine.Object> objects, DependencyType depType)
 		{
 			if (!objects.Any())
-				return null;
+				return new DependencyViewerState(stateName, emptySelection);
 
 			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
