@@ -309,6 +309,12 @@ namespace UnityEditor.Search
 		public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
 		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
 		public SearchTable GetSearchTable() => throw new NotImplementedException();
+
+		public bool IsReadOnly()
+		{
+			return false;
+		}
+
 		public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn)
 		{
 			menu.AddItem(new GUIContent("Open in Search"), false, OpenStateInSearch);
@@ -316,7 +322,31 @@ namespace UnityEditor.Search
 
 		public bool OpenContextualMenu(Event evt, SearchItem item)
 		{
-			return false;
+			var menu = new GenericMenu();
+			var currentSelection = new[] { item };
+			foreach (var action in item.provider.actions.Where(a => a.enabled(currentSelection)))
+			{
+				var itemName = !string.IsNullOrWhiteSpace(action.content.text) ? action.content.text : action.content.tooltip;
+				menu.AddItem(new GUIContent(itemName, action.content.image), false, () => ExecuteAction(action, currentSelection));
+			}
+
+			menu.ShowAsContext();
+			evt.Use();
+			return true;
+		}
+
+		public void ExecuteAction(SearchAction action, SearchItem[] items)
+		{
+			var item = items.LastOrDefault();
+			if (item == null)
+				return;
+
+			if (action.handler != null && items.Length == 1)
+				action.handler(item);
+			else if (action.execute != null)
+				action.execute(items);
+			else
+				action.handler?.Invoke(item);
 		}
 
 		UnityEngine.Object GetObject(in SearchItem item)
@@ -450,6 +480,8 @@ namespace UnityEditor.Search
 
 		public void PushViewerState(DependencyViewerState state)
 		{
+			if (state == null)
+				return;
 			SetViewerState(state);
 			if (m_CurrentState.states.Count != 0)
 			{

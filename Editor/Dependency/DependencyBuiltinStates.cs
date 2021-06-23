@@ -21,7 +21,7 @@ namespace UnityEditor.Search
 		private static DependencyViewerState StateFromObjects(string stateName, IEnumerable<UnityEngine.Object> objects, DependencyType depType)
 		{
 			if (!objects.Any())
-				return new DependencyViewerState(stateName, emptySelection);
+				return null;
 
 			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
@@ -31,11 +31,18 @@ namespace UnityEditor.Search
 				var instanceId = obj.GetInstanceID();
 				var assetPath = AssetDatabase.GetAssetPath(instanceId);
 				if (!string.IsNullOrEmpty(assetPath))
+				{
+					if (System.IO.Directory.Exists(assetPath))
+						continue;
 					selectedPaths.Add("\"" + assetPath + "\"");
+				}
 				else
 					selectedInstanceIds.Add(instanceId);
 				globalObjectIds.Add(GlobalObjectId.GetGlobalObjectIdSlow(instanceId).ToString());
 			}
+
+			if (globalObjectIds.Count == 0)
+				return null;
 
 			var providers = new[] { "expression", "dep", "scene" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
