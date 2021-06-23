@@ -1,15 +1,18 @@
 #if USE_DEPENDENCY_PROVIDER
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace UnityEditor.Search
 {
 	static class DependencyBuiltinStates
 	{
-		public static DependencyViewerState StateFromObjects(IEnumerable<UnityEngine.Object> objects)
+		static List<string> emptySelection = new List<string>();
+
+		private static DependencyViewerState StateFromObjects(string stateName, IEnumerable<UnityEngine.Object> objects, bool uses = true, bool usedBy = true)
 		{
 			if (!objects.Any())
-				return new DependencyViewerState("No objects");
+				return new DependencyViewerState(stateName, emptySelection);
 
 			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
@@ -34,10 +37,12 @@ namespace UnityEditor.Search
 				fromQuery = $"{{{fromQuery}, deps{{[{selectedInstanceIdsStr}]}}}}";
 				selectedPathsStr = string.Join(",", selectedPaths.Concat(selectedInstanceIds.Select(e => e.ToString())));
 			}
-			return new DependencyViewerState("Selection", globalObjectIds, new[] {
-				new DependencyState("Uses", SearchService.CreateContext(providers, fromQuery), CreateDefaultTable("Uses")),
-				new DependencyState("Used By", SearchService.CreateContext(providers, $"ref=[{selectedPathsStr}]"), CreateDefaultTable("Used By (References)"))
-			});
+			var state = new DependencyViewerState(stateName, globalObjectIds);
+			if (uses)
+				state.states.Add(new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"), CreateDefaultTable("Uses")));
+			if (usedBy)
+				state.states.Add(new DependencyState("Used By", SearchService.CreateContext(providers, $"ref=[{selectedPathsStr}]"), CreateDefaultTable("Used By (References)")));
+			return state;
 		}
 
 		static IEnumerable<SearchColumn> GetDefaultColumns(string tableName)
@@ -54,59 +59,92 @@ namespace UnityEditor.Search
 			return new SearchTable(System.Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
 		}
 
-		[DependencyViewerState]
-		public static DependencyViewerState TrackSelection()
+		[DependencyViewerProvider(true)]
+		public static DependencyViewerState SelectionUses()
 		{
-			if (Selection.objects.Length == 0)
-				return new DependencyViewerState("No Selection");
-
-			return StateFromObjects(Selection.objects);
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUses)), Selection.objects, true, false);
+			return depState;
 		}
 
-		[DependencyViewerState]
+		[DependencyViewerProvider(true)]
+		public static DependencyViewerState SelectionUsedBy()
+		{
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUsedBy)), Selection.objects, false, true);
+			return depState;
+		}
+
+		[DependencyViewerProvider(true)]
+		public static DependencyViewerState SelectionDependencies()
+		{
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionDependencies)), Selection.objects);
+			return depState;
+		}
+
+		[DependencyViewerProvider]
 		internal static DependencyViewerState BrokenDependencies()
 		{
 			var title = ObjectNames.NicifyVariableName(nameof(BrokenDependencies));
-			return new DependencyViewerState(title, new [] {
+			return new DependencyViewerState(
+				title,
 				new DependencyState(title, SearchService.CreateContext("dep", "is:broken"), CreateDefaultTable(title))
-			});
+			);
 		}
 
-		[DependencyViewerState]
+		[DependencyViewerProvider]
 		internal static DependencyViewerState MissingDependencies()
 		{
 			var title = ObjectNames.NicifyVariableName(nameof(MissingDependencies));
-			return new DependencyViewerState(title, new [] {
+			return new DependencyViewerState(
+				title,
 				new DependencyState(title, SearchService.CreateContext("dep", "is:missing"), new SearchTable("MostUsed", "Name", new[] {
 					new SearchColumn("GUID", "label", "selectable") { width = 390 }
 				}))
-			});
+			);
 		}
 
-		[DependencyViewerState]
+		[DependencyViewerProvider]
 		internal static DependencyViewerState MostUsedAssets()
 		{
 			var defaultDepFlags = SearchColumnFlags.CanSort | SearchColumnFlags.IgnoreSettings;
 			var query = SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:ref=\"@path\"}}, @value, desc}}");
-			return new DependencyViewerState("Most Used Assets", new [] {
-				new DependencyState("Most Used Assets", query, new SearchTable("MostUsed", "Name", new[] {
+			var title = ObjectNames.NicifyVariableName(nameof(MostUsedAssets));
+			return new DependencyViewerState(
+				title,
+				new DependencyState(title, query, new SearchTable(title, "Name", new[] {
 					new SearchColumn("Name", "label", "name", null, defaultDepFlags) { width = 390 },
 					new SearchColumn("Count", "value", null, defaultDepFlags) { width = 80 }
 				}))
-			});
+			);
 		}
 
-		[DependencyViewerState]
+		[DependencyViewerProvider]
 		internal static DependencyViewerState UnusedAssets()
 		{
 			var query = SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file is:valid -is:package");
-			return new DependencyViewerState("Unused Assets", new [] {
-				new DependencyState("Unused Assets", query, new SearchTable("Unused", "Name", new[] {
-					new SearchColumn("Unused Assets", "label", "Name") { width = 380 },
+			var title = ObjectNames.NicifyVariableName(nameof(UnusedAssets));
+			return new DependencyViewerState(
+				title,
+				new DependencyState(title, query, new SearchTable(title, "Name", new[] {
+					new SearchColumn(title, "label", "Name") { width = 380 },
 					new SearchColumn("Type", "type") { width = 90 },
 					new SearchColumn("Size", "size", "size")  { width = 80 }
 				}))
-			});
+			);
+		}
+
+		internal static DependencyViewerState ObjectDependencies(UnityEngine.Object obj)
+		{
+			var state = StateFromObjects(ObjectNames.NicifyVariableName(nameof(ObjectDependencies)), new[] { obj });
+			state.name = ObjectNames.NicifyVariableName(nameof(ObjectDependencies));
+			return state;
+		}
+
+		internal static DependencyViewerState CreateStateFromQuery(SearchQueryAsset sqa)
+		{
+			return new DependencyViewerState(sqa.name, new[] { new DependencyState(sqa) })
+			{
+				description = new GUIContent(sqa.searchText)
+			};
 		}
 	}
 }

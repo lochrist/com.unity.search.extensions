@@ -5,6 +5,8 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using System.Linq;
 
+
+
 namespace UnityEditor.Search
 {
 	interface IDependencyViewHost
@@ -14,10 +16,10 @@ namespace UnityEditor.Search
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]
-	class DependencyViewerStateAttribute : Attribute
+	class DependencyViewerProvider : Attribute
 	{
-		static List<DependencyViewerStateAttribute> m_StateProviders;
-		public static IEnumerable<DependencyViewerStateAttribute> s_StateProviders
+		static List<DependencyViewerProvider> m_StateProviders;
+		public static IEnumerable<DependencyViewerProvider> s_StateProviders
 		{
 			get
 			{
@@ -28,16 +30,17 @@ namespace UnityEditor.Search
 		}
 		static void FetchStateProviders()
 		{
-			m_StateProviders = new List<DependencyViewerStateAttribute>();
-			var methods = TypeCache.GetMethodsWithAttribute<DependencyViewerStateAttribute>();
+			m_StateProviders = new List<DependencyViewerProvider>();
+			var methods = TypeCache.GetMethodsWithAttribute<DependencyViewerProvider>();
 			foreach(var mi in methods)
 			{
 				try
 				{
-					var attr = mi.GetCustomAttributes(typeof(DependencyViewerStateAttribute), false).Cast<DependencyViewerStateAttribute>().First();
+					var attr = mi.GetCustomAttributes(typeof(DependencyViewerProvider), false).Cast<DependencyViewerProvider>().First();
 					attr.handler = Delegate.CreateDelegate(typeof(Func<DependencyViewerState>), mi) as Func<DependencyViewerState>;
 					attr.name = attr.name ?? ObjectNames.NicifyVariableName(mi.Name);
 					m_StateProviders.Add(attr);
+					attr.providerId = m_StateProviders.Count - 1;
 				}
 				catch(Exception e)
 				{
@@ -45,19 +48,43 @@ namespace UnityEditor.Search
 				}				
 			}
 		}
+		public static DependencyViewerProvider GetProvider(int id)
+		{
+			if (id < 0 || id >= s_StateProviders.Count())
+			{
+				return null;
+			}
+			return m_StateProviders[id];
+		}
+		public static DependencyViewerProvider GetDefault()
+		{
+			var d = s_StateProviders.FirstOrDefault(p => p.trackSelection);
+			if (d != null)
+				return d;
+			return s_StateProviders.First();
+		}
 
 		public string name;
-		public Func<DependencyViewerState> handler;
-		public DependencyViewerStateAttribute(string name = null)
+		public bool trackSelection;
+		private Func<DependencyViewerState> handler;
+		private int providerId;
+		public DependencyViewerProvider(bool trackSelection = false, string name = null)
 		{
+			this.trackSelection = trackSelection;
 			this.name = name;
+		}
+
+		public DependencyViewerState CreateState()
+		{
+			var state = handler();
+			state.viewerProviderId = providerId;
+			return state;
 		}
 	}
 
 	[Serializable]
 	class DependencyState : ISerializationCallbackReceiver
 	{
-		[SerializeField] private string m_Name;
 		[SerializeField] private SearchQuery m_Query;
 		[NonSerialized] private SearchTable m_TableConfig;
 
@@ -78,7 +105,6 @@ namespace UnityEditor.Search
 
 		public DependencyState(string name, SearchContext context, SearchTable tableConfig)
 		{
-			m_Name = name;
 			m_TableConfig = tableConfig;
 			m_Query = new SearchQuery()
 			{
@@ -109,73 +135,99 @@ namespace UnityEditor.Search
 	[Serializable]
 	class DependencyViewerState
 	{
-		public string status;
 		public List<DependencyState> states;
 		public List<string> globalIds;
-		[SerializeField] private GUIContent title;
-		[SerializeField] private GUIContent windowTitle;
+		public string name;
+		[SerializeField] internal int viewerProviderId;
+		[SerializeField] private GUIContent m_Description;
+		[SerializeField] private GUIContent m_WindowTitle;
 
-		public DependencyViewerState(string status, IEnumerable<DependencyState> states = null)
-				: this(status, new List<string>(), new List<DependencyState>())
+		public DependencyViewerState(string name, DependencyState state)
+				: this(name, null, new[] { state })
 		{
-			title = new GUIContent(status);
+		}
+
+		public DependencyViewerState(string name, IEnumerable<DependencyState> states = null)
+				: this(name, null, states)
+		{
+		}
+
+
+		public DependencyViewerState(string name, List<string> globalIds, IEnumerable<DependencyState> states = null)
+		{
+			this.name = name;
+			this.globalIds = globalIds;
 			this.states = states != null ? states.ToList() : new List<DependencyState>();
+			viewerProviderId = -1;
 		}
 
-		public DependencyViewerState(string status, List<string> globalIds, IEnumerable<DependencyState> states = null)
+		public DependencyViewerProvider viewerProvider => DependencyViewerProvider.GetProvider(viewerProviderId);
+		public bool trackSelection
 		{
-			this.status = status;
-			this.globalIds = globalIds ?? new List<string>();
-			this.states = states != null ? states.ToList() : new List<DependencyState>();
-		}
-
-		public GUIContent GetTitle()
-		{
-			if (title == null)
+			get
 			{
-				var names = EnumeratePaths().ToList();
-				if (names.Count == 0)
-					title = new GUIContent("No dependencies");
-				else if (names.Count == 1)
-					title = new GUIContent(string.Join(", ", names), GetPreview());
-				else if (names.Count < 4)
-					title = new GUIContent(string.Join(", ", names), Icons.dependencies);
-				else
-					title = new GUIContent($"{names.Count} object selected", string.Join("\n", names));
-			}
-
-			return title;
+				var p = DependencyViewerProvider.GetProvider(viewerProviderId);
+				return p != null && p.trackSelection;
+			}			
 		}
 
-		public GUIContent GetWindowTitle()
+		public GUIContent description
 		{
-			if (windowTitle == null)
+			get
 			{
-				var names = EnumeratePaths().ToList();
-				if (names.Count != 1)
-					windowTitle = new GUIContent($"Dependency Viewer ({names.Count})", Icons.dependencies);
-				else
-					windowTitle = new GUIContent(System.IO.Path.GetFileNameWithoutExtension(names.First()), GetIcon());
+				if (m_Description == null)
+				{
+					if (globalIds != null)
+					{
+						var names = EnumeratePaths().ToList();
+						if (names.Count == 0)
+							m_Description = new GUIContent("No dependencies");
+						else if (names.Count == 1)
+							m_Description = new GUIContent(string.Join(", ", names), GetPreview());
+						else if (names.Count < 4)
+							m_Description = new GUIContent(string.Join(", ", names), Icons.dependencies);
+						else
+							m_Description = new GUIContent($"{names.Count} object selected", string.Join("\n", names));
+					}
+					else
+					{
+						m_Description = new GUIContent(name);
+					}					
+				}
+				return m_Description;
 			}
-
-			return windowTitle;
+			set
+			{
+				m_Description = value;
+			}
 		}
 
-		Texture GetIcon()
+		public GUIContent windowTitle		
 		{
-			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
-				return Icons.dependencies;
-			return AssetDatabase.GetCachedIcon(AssetDatabase.GUIDToAssetPath(gid.m_AssetGUID)) ?? Icons.dependencies;
-		}
+			get
+			{
+				if (m_WindowTitle == null)
+				{
+					if (globalIds != null)
+					{
+						var names = EnumeratePaths().ToList();
+						if (names.Count != 1)
+							m_WindowTitle = new GUIContent($"Dependency Viewer ({names.Count})", Icons.dependencies);
+						else
+							m_WindowTitle = new GUIContent(System.IO.Path.GetFileNameWithoutExtension(names.First()), GetIcon());
+					}
+					else
+					{
+						m_WindowTitle = new GUIContent(name);
+					}					
+				}
 
-		Texture GetPreview()
-		{
-			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
-				return Icons.dependencies;
-			var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
-			return AssetPreview.GetAssetPreview(obj)
-				?? AssetPreview.GetAssetPreviewFromGUID(gid.assetGUID.ToString())
-				?? Icons.dependencies;
+				return m_WindowTitle;
+			}
+			set
+			{
+				m_WindowTitle = value;
+			}
 		}
 
 		IEnumerable<string> EnumeratePaths()
@@ -277,7 +329,7 @@ namespace UnityEditor.Search
 			var obj = GetObject(item);
 			if (!obj)
 				return;
-			host.PushViewerState(DependencyBuiltinStates.StateFromObjects(new[] { obj }));
+			host.PushViewerState(DependencyBuiltinStates.ObjectDependencies(obj));
 		}
 
 		public void UpdateColumnSettings(int columnIndex, MultiColumnHeaderState.Column columnSettings)
@@ -347,7 +399,7 @@ namespace UnityEditor.Search
 		{
 			titleContent = new GUIContent("Dependency Viewer", Icons.dependencies);
 			m_Splitter = m_Splitter ?? new SplitterInfo(SplitterInfo.Side.Left, 0.1f, 0.9f, this);
-			m_CurrentState = m_CurrentState ?? DependencyBuiltinStates.TrackSelection();
+			m_CurrentState = m_CurrentState ?? DependencyViewerProvider.GetDefault().CreateState();
 			m_History = new List<DependencyViewerState>();
 			m_Splitter.host = this;
 			PushViewerState(m_CurrentState);
@@ -366,9 +418,9 @@ namespace UnityEditor.Search
 
 		private void OnSelectionChanged()
 		{
-			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection)
+			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection || !m_CurrentState.trackSelection)
 				return;
-			UpdateSelection();
+			PushViewerState(m_CurrentState.viewerProvider.CreateState());
 			Repaint();
 		}
 
@@ -376,13 +428,7 @@ namespace UnityEditor.Search
 		{
 			m_CurrentState = state;
 			m_Views = BuildViews(m_CurrentState);
-			titleContent = m_CurrentState.GetWindowTitle();
-		}
-
-		void UpdateSelection()
-		{
-			PushViewerState(DependencyBuiltinStates.TrackSelection());
-			Repaint();
+			titleContent = m_CurrentState.windowTitle;
 		}
 
 		public void PushViewerState(DependencyViewerState state)
@@ -412,14 +458,17 @@ namespace UnityEditor.Search
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabled();
-					GUILayout.Label(m_CurrentState.GetTitle(), GUILayout.Height(18f));
+					GUILayout.Label(m_CurrentState.description, GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
-					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.status ?? "Source"), FocusType.Passive))
+					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.name), FocusType.Passive))
 						OnSourceChange();
 					EditorGUI.BeginChangeCheck();
+
+					EditorGUI.BeginDisabled(!m_CurrentState.trackSelection);
 					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
 					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
 						OnSelectionChanged();
+					EditorGUI.EndDisabled();
 				}
 
 				using (SearchMonitor.GetView())
@@ -453,8 +502,11 @@ namespace UnityEditor.Search
 		private void OnSourceChange()
 		{			
 			var menu = new GenericMenu();
-			foreach(var stateProvider in DependencyViewerStateAttribute.s_StateProviders)
-				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler()));
+			foreach(var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => s.trackSelection))
+				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
+			menu.AddSeparator("");
+			foreach (var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => !s.trackSelection))
+				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
 
 			menu.AddSeparator("");
 
@@ -467,14 +519,14 @@ namespace UnityEditor.Search
 			{
 				foreach (var sq in depQueries)
 				{
-					menu.AddItem(new GUIContent(sq.name, sq.description), false, () => PushViewerState(new DependencyViewerState(sq.name, new[] { new DependencyState(sq) })));
+					menu.AddItem(new GUIContent(sq.name, sq.description), false, () => PushViewerState(DependencyBuiltinStates.CreateStateFromQuery(sq)));
 				}
 				menu.AddSeparator("");
 			}
 			
 			menu.AddItem(new GUIContent("Build"), false, () => Dependency.Build());
 			menu.ShowAsContext();
-		}
+		}				
 
 		private void GotoNextStates()
 		{
