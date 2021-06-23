@@ -407,27 +407,30 @@ namespace UnityEditor.Search
 						OnSelectionChanged();
 				}
 
-				if (m_Views != null && m_Views.Count >= 1)
+				using (SearchMonitor.GetView())
 				{
-					EditorGUILayout.BeginHorizontal();
-					var treeViewRect = m_Views.Count >= 2 ?
-						EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1))) :
-						EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true));
-					m_Views[0].OnGUI(treeViewRect);
-					if (m_Views.Count >= 2)
+					if (m_Views != null && m_Views.Count >= 1)
 					{
-						m_Splitter.Draw(evt, treeViewRect);
-						treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
-						m_Views[1].OnGUI(treeViewRect);
-
-						if (evt.type == EventType.Repaint)
+						EditorGUILayout.BeginHorizontal();
+						var treeViewRect = m_Views.Count >= 2 ?
+							EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.Width(Mathf.Ceil(m_Splitter.width - 1))) :
+							EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true));
+						m_Views[0].OnGUI(treeViewRect);
+						if (m_Views.Count >= 2)
 						{
-							GUI.DrawTexture(new Rect(treeViewRect.xMin, treeViewRect.yMin, 1, treeViewRect.height),
-												EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, 1f, 0f);
-						}
-					}
+							m_Splitter.Draw(evt, treeViewRect);
+							treeViewRect = EditorGUILayout.GetControlRect(false, -1, GUIStyle.none, GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
+							m_Views[1].OnGUI(treeViewRect);
 
-					EditorGUILayout.EndHorizontal();
+							if (evt.type == EventType.Repaint)
+							{
+								GUI.DrawTexture(new Rect(treeViewRect.xMin, treeViewRect.yMin, 1, treeViewRect.height),
+													EditorGUIUtility.whiteTexture, ScaleMode.StretchToFill, false, 0f, Color.black, 1f, 0f);
+							}
+						}
+
+						EditorGUILayout.EndHorizontal();
+					}
 				}
 			}
 		}

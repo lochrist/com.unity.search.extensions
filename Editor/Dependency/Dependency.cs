@@ -314,6 +314,9 @@ static class Dependency
 			return;
 
 		var guid = ToGuid(assetPath);
+		if (ignoredGuids.Contains(guid))
+			return;
+
 		Progress.Report(progressId, completed, totalCount, assetPath);
 
 		TrackGuid(guid);
