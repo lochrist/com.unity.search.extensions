@@ -29,7 +29,7 @@ using System.Threading;
 // from:         => Yield assets which are used by asset with <guid>
 // in=<count>    => Yield assets which are used <count> times
 //
-// to:<guid>     => Yield assets which are referencing the asset with <guid>
+// ref:<guid>    => Yield assets which are referencing the asset with <guid>
 // out=<count>   => Yield assets which have <count> references to other assets
 static class Dependency
 {
@@ -54,10 +54,10 @@ static class Dependency
 		"0000000000000000f000000000000000"
 	};
 
-	[SearchSelector("usedByCount", provider: providerId)]
-	internal static object SelectUsedByCount(SearchItem item)
+	[SearchSelector("refCount", provider: providerId)]
+	internal static object SelectReferenceCount(SearchItem item)
 	{
-		var count = GetUseByCount(item.id);
+		var count = GetReferenceCount(item.id);
 		if (count < 0)
 			return null;
 		return count;
@@ -93,7 +93,7 @@ static class Dependency
 		SearchService.ShowContextual(providerId);
 	}
 
-	[MenuItem("Assets/(depends) Copy GUID")]
+	[MenuItem("Assets/Depends/Copy GUID")]
 	internal static void CopyGUID()
 	{
 		var obj = Selection.activeObject;
@@ -102,7 +102,7 @@ static class Dependency
 		EditorGUIUtility.systemCopyBuffer = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(obj));
 	}
 
-	[MenuItem("Assets/(depends) Find Usings (from)")]
+	[MenuItem("Assets/Depends/Find Uses")]
 	internal static void FindUsings()
 	{
 		var obj = Selection.activeObject;
@@ -110,23 +110,23 @@ static class Dependency
 			return;
 		var path = AssetDatabase.GetAssetPath(obj);
 		var searchContext = SearchService.CreateContext(providerId, $"from=\"{path}\"");
-		SearchService.ShowWindow(searchContext, "Dependencies (from)", saveFilters: false);
+		SearchService.ShowWindow(searchContext, "Dependencies (Uses)", saveFilters: false);
 	}
 
-	[MenuItem("Assets/(depends) Find Usages (to)")]
+	[MenuItem("Assets/Depends/Find Used By (References)")]
 	internal static void FindUsages()
 	{
 		var obj = Selection.activeObject;
 		if (!obj)
 			return;
 		var path = AssetDatabase.GetAssetPath(obj);
-		var searchContext = SearchService.CreateContext(providerId, $"to=\"{path}\"");
-		SearchService.ShowWindow(searchContext, "Dependencies (to)", saveFilters: false);
+		var searchContext = SearchService.CreateContext(new[] { "dep", "scene", "asset", "adb" }, $"ref=\"{path}\"");
+		SearchService.ShowWindow(searchContext, "References", saveFilters: false);
 	}
 
-	internal static int GetUseByCount(string id)
+	internal static int GetReferenceCount(string id)
 	{
-		var recordKey = PropertyDatabase.CreateRecordKey(id, "assetUseByCount");
+		var recordKey = PropertyDatabase.CreateRecordKey(id, "referenceCount");
 		using (var view = SearchMonitor.GetView())
 		{
 			if (view.TryLoadProperty(recordKey, out object data))
@@ -137,7 +137,7 @@ static class Dependency
 		if (path == null || Directory.Exists(path))
 			return -1;
 
-		var searchContext = SearchService.CreateContext(providerId, $"to=\"{path}\"");
+		var searchContext = SearchService.CreateContext(providerId, $"ref=\"{path}\"");
 		SearchService.Request(searchContext, (context, items) =>
 		{
 			using (var view = SearchMonitor.GetView())
@@ -148,17 +148,6 @@ static class Dependency
 			context.Dispose();
 		});
 		return -1;
-	}
-
-	[MenuItem("Assets/(depends) Find References (ref)")]
-	internal static void FindReferences()
-	{
-		var obj = Selection.activeObject;
-		if (!obj)
-			return;
-		var path = AssetDatabase.GetAssetPath(obj);
-		var searchContext = SearchService.CreateContext(new[] { "asset", "adb" }, $"ref=\"{path}\"");
-		SearchService.ShowWindow(searchContext, "References", saveFilters: false);
 	}
 
 	static void Load(string indexPath)
@@ -243,9 +232,9 @@ static class Dependency
 			index.AddNumber("out", refs.Count, 0, di);
 			foreach (var r in refs)
 			{
-				AddStaticProperty("to", r, di);
+				AddStaticProperty("ref", r, di);
 				if (guidToPathMap.TryGetValue(r, out var toPath))
-					AddStaticProperty("to", toPath, di, exact: true);
+					AddStaticProperty("ref", toPath, di, exact: true);
 			}
 		}
 
@@ -463,6 +452,7 @@ static class Dependency
 	{
 		return new SearchProvider(providerId, "Dependencies")
 		{
+			priority = 31,
 			active = false,
 			isExplicitProvider = false,
 			showDetails = true,
@@ -559,15 +549,15 @@ static class Dependency
 	internal static IEnumerable<SearchAction> ActionHandlers()
 	{
 		yield return SelectAsset();
-		yield return Goto("to", "Show outgoing references", "to");
-		yield return Goto("from", "Show incoming references", "from");
+		yield return Goto("ref", "Show Uses References", "ref");
+		yield return Goto("from", "Show Used By Dependencies", "from");
 		yield return Goto("missing", "Show broken links", "is:missing from");
 		yield return LogRefs();
 
 		if (SearchService.GetProvider("asset")?.active ?? false)
 		{
-			yield return new SearchAction("asset", "usings", new GUIContent("Find Usings"), FindUsings);
-			yield return new SearchAction("asset", "usage", new GUIContent("Find Usage"), FindUsage);
+			yield return new SearchAction("asset", "uses", new GUIContent("Find Uses"), FindUsings);
+			yield return new SearchAction("asset", "usedBy", new GUIContent("Find Used By"), FindUsage);
 		}
 	}
 
@@ -575,8 +565,8 @@ static class Dependency
 	{
 		if (!GlobalObjectId.TryParse(item.id, out var gid))
 			return;
-		var searchContext = SearchService.CreateContext(providerId, $"to:{gid.assetGUID}");
-		SearchService.ShowWindow(searchContext, "Dependencies (to)", saveFilters: false);
+		var searchContext = SearchService.CreateContext(providerId, $"ref:{gid.assetGUID}");
+		SearchService.ShowWindow(searchContext, "References", saveFilters: false);
 	}
 
 	static void FindUsings(SearchItem item)
@@ -584,7 +574,7 @@ static class Dependency
 		if (!GlobalObjectId.TryParse(item.id, out var gid))
 			return;
 		var searchContext = SearchService.CreateContext(providerId, $"from:{gid.assetGUID}");
-		SearchService.ShowWindow(searchContext, "Dependencies (from)", saveFilters: false);
+		SearchService.ShowWindow(searchContext, "Dependencies (Uses)", saveFilters: false);
 	}
 
 	static SearchAction SelectAsset()

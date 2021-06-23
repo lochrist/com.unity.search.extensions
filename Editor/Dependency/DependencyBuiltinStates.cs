@@ -24,12 +24,26 @@ namespace UnityEditor.Search
 				globalObjectIds.Add(GlobalObjectId.GetGlobalObjectIdSlow(instanceId).ToString());
 			}
 
-			var providers = new[] { "expression", "dep" };
+			var providers = new[] { "expression", "dep", "scene" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
 			return new DependencyViewerState("Selection", globalObjectIds, new[] {
-				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]")),
-				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"))
+				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"), CreateDefaultTable("Uses")),
+				new DependencyState("Used By", SearchService.CreateContext(providers, $"ref=[{selectedPathsStr}]"), CreateDefaultTable("Used By (References)"))
 			});
+		}
+
+		static IEnumerable<SearchColumn> GetDefaultColumns(string tableName)
+		{
+			var defaultDepFlags = SearchColumnFlags.CanSort;
+			yield return new SearchColumn("Ref #", "refCount", null, defaultDepFlags | SearchColumnFlags.TextAlignmentRight) { width = 40 };
+			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
+			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
+			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
+		}
+
+		public static SearchTable CreateDefaultTable(string tableName)
+		{
+			return new SearchTable(System.Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
 		}
 
 		[DependencyViewerState]
@@ -44,16 +58,20 @@ namespace UnityEditor.Search
 		[DependencyViewerState]
 		internal static DependencyViewerState BrokenDependencies()
 		{
-			return new DependencyViewerState("Broken dependencies", new [] {
-				new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken"))
+			var title = ObjectNames.NicifyVariableName(nameof(BrokenDependencies));
+			return new DependencyViewerState(title, new [] {
+				new DependencyState(title, SearchService.CreateContext("dep", "is:broken"), CreateDefaultTable(title))
 			});
 		}
 
 		[DependencyViewerState]
 		internal static DependencyViewerState MissingDependencies()
 		{
-			return new DependencyViewerState("Missing dependencies", new [] {
-				new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing"))
+			var title = ObjectNames.NicifyVariableName(nameof(MissingDependencies));
+			return new DependencyViewerState(title, new [] {
+				new DependencyState(title, SearchService.CreateContext("dep", "is:missing"), new SearchTable("MostUsed", "Name", new[] {
+					new SearchColumn("GUID", "label", "selectable") { width = 390 }
+				}))
 			});
 		}
 
@@ -61,9 +79,9 @@ namespace UnityEditor.Search
 		internal static DependencyViewerState MostUsedAssets()
 		{
 			var defaultDepFlags = SearchColumnFlags.CanSort | SearchColumnFlags.IgnoreSettings;
-			var query = SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:to=\"@path\"}}, @value, desc}}");
+			var query = SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:ref=\"@path\"}}, @value, desc}}");
 			return new DependencyViewerState("Most Used Assets", new [] {
-					new DependencyState("Most Used Assets", query, new SearchTable("MostUsed", "Name", new[] {
+				new DependencyState("Most Used Assets", query, new SearchTable("MostUsed", "Name", new[] {
 					new SearchColumn("Name", "label", "name", null, defaultDepFlags) { width = 390 },
 					new SearchColumn("Count", "value", null, defaultDepFlags) { width = 80 }
 				}))

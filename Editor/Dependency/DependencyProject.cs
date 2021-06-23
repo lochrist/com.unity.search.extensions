@@ -16,7 +16,7 @@ namespace UnityEditor.Search
 
 		private static void DrawDependencies(string guid, Rect rect)
 		{
-			var count = Dependency.GetUseByCount(guid);
+			var count = Dependency.GetReferenceCount(guid);
 			if (count == -1)
 				return;
 

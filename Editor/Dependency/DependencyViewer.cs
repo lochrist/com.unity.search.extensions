@@ -68,19 +68,18 @@ namespace UnityEditor.Search
 		public DependencyState(SearchQuery query)
 		{
 			m_Query = query;
-			m_TableConfig = query.tableConfig == null || query.tableConfig.columns.Length == 0 ? CreateDefaultTable(query.name) : query.tableConfig;
+			m_TableConfig = query.tableConfig == null || query.tableConfig.columns.Length == 0 ? DependencyBuiltinStates.CreateDefaultTable(query.name) : query.tableConfig;
 		}
 
 		public DependencyState(SearchQueryAsset query)
+			: this(query.ToSearchQuery())
 		{
-			m_Query = query.ToSearchQuery();
-			m_TableConfig = m_Query.tableConfig == null || m_Query.tableConfig.columns.Length == 0 ? CreateDefaultTable(query.name) : m_Query.tableConfig;
 		}
 
-		public DependencyState(string name, SearchContext context, SearchTable tableConfig = null)
+		public DependencyState(string name, SearchContext context, SearchTable tableConfig)
 		{
 			m_Name = name;
-			m_TableConfig = tableConfig ?? CreateDefaultTable(name);
+			m_TableConfig = tableConfig;
 			m_Query = new SearchQuery()
 			{
 				name = name,
@@ -88,20 +87,6 @@ namespace UnityEditor.Search
 				displayName = name,
 				tableConfig = m_TableConfig
 			};
-		}
-
-		static public IEnumerable<SearchColumn> GetDefaultColumns(string tableName)
-		{
-			var defaultDepFlags = SearchColumnFlags.CanSort;
-			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
-			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
-			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
-			yield return new SearchColumn("Used #", "usedByCount", null, defaultDepFlags);
-		}
-
-		static public SearchTable CreateDefaultTable(string tableName)
-		{
-			return new SearchTable(Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
 		}
 
 		public void Dispose()
