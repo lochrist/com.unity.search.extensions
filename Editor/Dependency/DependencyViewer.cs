@@ -56,19 +56,19 @@ namespace UnityEditor.Search
 		}
 		public static DependencyViewerProvider GetDefault()
 		{
-			var d = s_StateProviders.FirstOrDefault(p => p.trackSelection);
+			var d = s_StateProviders.FirstOrDefault(p => p.flags.HasFlag(DependencyViewerFlags.TrackSelection));
 			if (d != null)
 				return d;
 			return s_StateProviders.First();
 		}
 
 		public string name;
-		public bool trackSelection;
+		public DependencyViewerFlags flags;
 		private Func<DependencyViewerState> handler;
 		private int providerId;
-		public DependencyViewerProvider(bool trackSelection = false, string name = null)
+		public DependencyViewerProvider(DependencyViewerFlags flags = DependencyViewerFlags.None, string name = null)
 		{
-			this.trackSelection = trackSelection;
+			this.flags = flags;
 			this.name = name;
 		}
 
@@ -77,6 +77,7 @@ namespace UnityEditor.Search
 			var state = handler();
 			if (state == null)
 				return null;
+			state.flags |= flags;
 			state.viewerProviderId = providerId;
 			return state;
 		}
@@ -135,6 +136,7 @@ namespace UnityEditor.Search
 	[Serializable]
 	class DependencyViewerState
 	{
+		public DependencyViewerFlags flags;
 		public List<DependencyState> states;
 		public List<string> globalIds;
 		public string name;
@@ -161,15 +163,8 @@ namespace UnityEditor.Search
 			viewerProviderId = -1;
 		}
 
-		public DependencyViewerProvider viewerProvider => DependencyViewerProvider.GetProvider(viewerProviderId);
-		public bool trackSelection
-		{
-			get
-			{
-				var p = DependencyViewerProvider.GetProvider(viewerProviderId);
-				return p != null && p.trackSelection;
-			}			
-		}
+		public DependencyViewerProvider viewerProvider => DependencyViewerProvider.GetProvider(viewerProviderId) ?? DependencyViewerProvider.GetDefault();
+		public bool trackSelection => flags.HasFlag(DependencyViewerFlags.TrackSelection);
 
 		public GUIContent description
 		{
@@ -565,10 +560,10 @@ namespace UnityEditor.Search
 		private void OnSourceChange()
 		{			
 			var menu = new GenericMenu();
-			foreach(var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => s.trackSelection))
+			foreach(var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
 			menu.AddSeparator("");
-			foreach (var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => !s.trackSelection))
+			foreach (var stateProvider in DependencyViewerProvider.s_StateProviders.Where(s => !s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
 
 			menu.AddSeparator("");

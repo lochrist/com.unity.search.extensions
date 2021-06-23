@@ -6,19 +6,21 @@ using UnityEngine;
 
 namespace UnityEditor.Search
 {
+	[Flags]
+	enum DependencyViewerFlags
+	{
+		None = 0,
+		Uses = 1 << 1,
+		UsedBy = 1 << 2,
+		TrackSelection = 1 << 3,
+		All = Uses | UsedBy
+	}
+
 	static class DependencyBuiltinStates
 	{
 		static List<string> emptySelection = new List<string>();
 
-		[Flags]
-		enum DependencyType
-		{
-			Uses = 0x01,
-			UsedBy = 0x02,
-			All = Uses | UsedBy
-		}
-
-		private static DependencyViewerState StateFromObjects(string stateName, IEnumerable<UnityEngine.Object> objects, DependencyType depType)
+		private static DependencyViewerState StateFromObjects(string stateName, IEnumerable<UnityEngine.Object> objects, DependencyViewerFlags depType)
 		{
 			if (!objects.Any())
 				return new DependencyViewerState(stateName, emptySelection);
@@ -53,10 +55,10 @@ namespace UnityEditor.Search
 				fromQuery = $"{{{fromQuery}, deps{{[{selectedInstanceIdsStr}]}}}}";
 				selectedPathsStr = string.Join(",", selectedPaths.Concat(selectedInstanceIds.Select(e => e.ToString())));
 			}
-			var state = new DependencyViewerState(stateName, globalObjectIds);
-			if (depType.HasFlag(DependencyType.Uses))
+			var state = new DependencyViewerState(stateName, globalObjectIds) { flags = depType | DependencyViewerFlags.TrackSelection };
+			if (depType.HasFlag(DependencyViewerFlags.Uses))
 				state.states.Add(new DependencyState("Uses", SearchService.CreateContext(providers, fromQuery), CreateDefaultTable("Uses")));
-			if (depType.HasFlag(DependencyType.UsedBy))
+			if (depType.HasFlag(DependencyViewerFlags.UsedBy))
 				state.states.Add(new DependencyState("Used By", SearchService.CreateContext(providers, $"ref=[{selectedPathsStr}]"), CreateDefaultTable("Used By (References)")));
 			return state;
 		}
@@ -75,24 +77,24 @@ namespace UnityEditor.Search
 			return new SearchTable(System.Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
 		}
 
-		[DependencyViewerProvider(true)]
+		[DependencyViewerProvider(DependencyViewerFlags.TrackSelection)]
 		public static DependencyViewerState SelectionDependencies()
 		{
-			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionDependencies)), Selection.objects, DependencyType.All);
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionDependencies)), Selection.objects, DependencyViewerFlags.All);
 			return depState;
 		}
 
-		[DependencyViewerProvider(true)]
+		[DependencyViewerProvider(DependencyViewerFlags.TrackSelection)]
 		public static DependencyViewerState SelectionUses()
 		{
-			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUses)), Selection.objects, DependencyType.Uses);
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUses)), Selection.objects, DependencyViewerFlags.Uses);
 			return depState;
 		}
 
-		[DependencyViewerProvider(true)]
+		[DependencyViewerProvider(DependencyViewerFlags.TrackSelection)]
 		public static DependencyViewerState SelectionUsedBy()
 		{
-			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUsedBy)), Selection.objects, DependencyType.UsedBy);
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUsedBy)), Selection.objects, DependencyViewerFlags.UsedBy);
 			return depState;
 		}
 
@@ -150,7 +152,7 @@ namespace UnityEditor.Search
 
 		internal static DependencyViewerState ObjectDependencies(UnityEngine.Object obj)
 		{
-			var state = StateFromObjects(ObjectNames.NicifyVariableName(nameof(ObjectDependencies)), new[] { obj }, DependencyType.All);
+			var state = StateFromObjects(ObjectNames.NicifyVariableName(nameof(ObjectDependencies)), new[] { obj }, DependencyViewerFlags.All);
 			state.name = ObjectNames.NicifyVariableName(nameof(ObjectDependencies));
 			return state;
 		}
