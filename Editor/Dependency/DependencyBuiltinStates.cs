@@ -69,6 +69,13 @@ namespace UnityEditor.Search
 		}
 
 		[DependencyViewerProvider(true)]
+		public static DependencyViewerState SelectionDependencies()
+		{
+			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionDependencies)), Selection.objects, DependencyType.All);
+			return depState;
+		}
+
+		[DependencyViewerProvider(true)]
 		public static DependencyViewerState SelectionUses()
 		{
 			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUses)), Selection.objects, DependencyType.Uses);
@@ -79,13 +86,6 @@ namespace UnityEditor.Search
 		public static DependencyViewerState SelectionUsedBy()
 		{
 			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionUsedBy)), Selection.objects, DependencyType.UsedBy);
-			return depState;
-		}
-
-		[DependencyViewerProvider(true)]
-		public static DependencyViewerState SelectionDependencies()
-		{
-			var depState = StateFromObjects(ObjectNames.NicifyVariableName(nameof(SelectionDependencies)), Selection.objects, DependencyType.All);
 			return depState;
 		}
 
