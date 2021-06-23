@@ -64,6 +64,18 @@ namespace UnityEditor.Search
 		public SearchContext context => m_Query.viewState.context;
 		public SearchTable tableConfig => m_TableConfig;
 
+		public DependencyState(SearchQuery query)
+		{
+			m_Query = query;
+			m_TableConfig = query.tableConfig;
+		}
+
+		public DependencyState(SearchQueryAsset query)
+		{
+			m_Query = query.ToSearchQuery();
+			m_TableConfig = m_Query.tableConfig;
+		}
+
 		public DependencyState(string name, SearchContext context, SearchTable tableConfig = null)
 		{
 			m_Name = name;
@@ -210,7 +222,6 @@ namespace UnityEditor.Search
 		}
 
 		// ITableView
-
 		public void AddColumn(Vector2 mousePosition, int activeColumnIndex) => throw new NotImplementedException();
 		public void AddColumns(IEnumerable<SearchColumn> descriptors, int activeColumnIndex) => throw new NotImplementedException();
 		public void SetupColumns(IEnumerable<SearchItem> elements = null) => throw new NotImplementedException();
@@ -218,8 +229,15 @@ namespace UnityEditor.Search
 		public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
 		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
 		public SearchTable GetSearchTable() => throw new NotImplementedException();
-		public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn) => throw new NotImplementedException();
-		public bool OpenContextualMenu(Event evt, SearchItem item) => throw new NotImplementedException();
+		public void AddColumnHeaderContextMenuItems(GenericMenu menu, SearchColumn sourceColumn)
+		{
+			menu.AddItem(new GUIContent("Open in Search"), false, OpenStateInSearch);
+		}
+
+		public bool OpenContextualMenu(Event evt, SearchItem item)
+		{
+			return false;
+		}
 
 		public void SetSelection(IEnumerable<SearchItem> items)
 		{
@@ -263,6 +281,15 @@ namespace UnityEditor.Search
 		public void SetDirty()
 		{
 			host.Repaint();
+		}
+
+		private void OpenStateInSearch()
+		{
+			var searchViewState = new SearchViewState(state.context)
+			{
+				tableConfig = state.tableConfig
+			};
+			SearchService.ShowWindow(searchViewState);
 		}
 	}
 
