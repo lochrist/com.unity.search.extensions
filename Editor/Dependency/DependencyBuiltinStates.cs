@@ -13,21 +13,29 @@ namespace UnityEditor.Search
 
 			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
+			var selectedInstanceIds = new List<int>();
 			foreach (var obj in objects)
 			{
 				var instanceId = obj.GetInstanceID();
-				var assetPath = AssetDatabase.GetAssetPath(obj);
+				var assetPath = AssetDatabase.GetAssetPath(instanceId);
 				if (!string.IsNullOrEmpty(assetPath))
 					selectedPaths.Add("\"" + assetPath + "\"");
 				else
-					selectedPaths.Add(instanceId.ToString());
+					selectedInstanceIds.Add(instanceId);
 				globalObjectIds.Add(GlobalObjectId.GetGlobalObjectIdSlow(instanceId).ToString());
 			}
 
 			var providers = new[] { "expression", "dep", "scene" };
 			var selectedPathsStr = string.Join(",", selectedPaths);
+			var fromQuery = $"from=[{selectedPathsStr}]";
+			if (selectedInstanceIds.Count > 0)
+			{
+				var selectedInstanceIdsStr = string.Join(",", selectedInstanceIds);
+				fromQuery = $"{{{fromQuery}, deps{{[{selectedInstanceIdsStr}]}}}}";
+				selectedPathsStr = string.Join(",", selectedPaths.Concat(selectedInstanceIds.Select(e => e.ToString())));
+			}
 			return new DependencyViewerState("Selection", globalObjectIds, new[] {
-				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]"), CreateDefaultTable("Uses")),
+				new DependencyState("Uses", SearchService.CreateContext(providers, fromQuery), CreateDefaultTable("Uses")),
 				new DependencyState("Used By", SearchService.CreateContext(providers, $"ref=[{selectedPathsStr}]"), CreateDefaultTable("Used By (References)"))
 			});
 		}
@@ -37,7 +45,7 @@ namespace UnityEditor.Search
 			var defaultDepFlags = SearchColumnFlags.CanSort;
 			yield return new SearchColumn("Ref #", "refCount", null, defaultDepFlags | SearchColumnFlags.TextAlignmentRight) { width = 40 };
 			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
-			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
+			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings | SearchColumnFlags.Hidden) { width = 60 };
 			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
 		}
 

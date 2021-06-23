@@ -137,9 +137,9 @@ namespace UnityEditor.Search
 				if (names.Count == 0)
 					title = new GUIContent("No dependencies");
 				else if (names.Count == 1)
-					title = new GUIContent(string.Join(", ", names), AssetDatabase.GetCachedIcon(names[0]));
+					title = new GUIContent(string.Join(", ", names), GetPreview());
 				else if (names.Count < 4)
-					title = new GUIContent(string.Join(", ", names));
+					title = new GUIContent(string.Join(", ", names), Icons.dependencies);
 				else
 					title = new GUIContent($"{names.Count} object selected", string.Join("\n", names));
 			}
@@ -155,10 +155,27 @@ namespace UnityEditor.Search
 				if (names.Count != 1)
 					windowTitle = new GUIContent($"Dependency Viewer ({names.Count})", Icons.dependencies);
 				else
-					windowTitle = new GUIContent(System.IO.Path.GetFileNameWithoutExtension(names.First()), AssetDatabase.GetCachedIcon(names[0]));
+					windowTitle = new GUIContent(System.IO.Path.GetFileNameWithoutExtension(names.First()), GetIcon());
 			}
 
 			return windowTitle;
+		}
+
+		Texture GetIcon()
+		{
+			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
+				return Icons.dependencies;
+			return AssetDatabase.GetCachedIcon(AssetDatabase.GUIDToAssetPath(gid.m_AssetGUID)) ?? Icons.dependencies;
+		}
+
+		Texture GetPreview()
+		{
+			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
+				return Icons.dependencies;
+			var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
+			return AssetPreview.GetAssetPreview(obj)
+				?? AssetPreview.GetAssetPreviewFromGUID(gid.assetGUID.ToString())
+				?? Icons.dependencies;
 		}
 
 		IEnumerable<string> EnumeratePaths()
@@ -174,6 +191,8 @@ namespace UnityEditor.Search
 				var assetPath = AssetDatabase.GetAssetPath(instanceId);
 				if (!string.IsNullOrEmpty(assetPath))
 					yield return assetPath;
+				else if (EditorUtility.InstanceIDToObject(instanceId) is UnityEngine.Object obj)
+					yield return SearchUtils.GetObjectPath(obj).Substring(1);
 			}
 		}
 	}
@@ -231,22 +250,33 @@ namespace UnityEditor.Search
 			return false;
 		}
 
+		UnityEngine.Object GetObject(in SearchItem item)
+		{
+			UnityEngine.Object obj = null;
+			var path = SearchUtils.GetAssetPath(item);
+			if (!string.IsNullOrEmpty(path))
+				obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
+			if (!obj)
+				obj = item.ToObject();
+			return obj;
+		}
+
 		public void SetSelection(IEnumerable<SearchItem> items)
 		{
 			var firstItem = items.FirstOrDefault();
-			if (firstItem != null)
-				Utils.PingAsset(SearchUtils.GetAssetPath(firstItem));
+			if (firstItem == null)
+				return;
+			var obj = GetObject(firstItem);
+			if (!obj)
+				return;
+			EditorGUIUtility.PingObject(obj);
 		}
 
 		public void DoubleClick(SearchItem item)
 		{
-			var path = SearchUtils.GetAssetPath(item);
-			if (string.IsNullOrEmpty(path))
-				return;
-			var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
+			var obj = GetObject(item);
 			if (!obj)
 				return;
-
 			host.PushViewerState(DependencyBuiltinStates.StateFromObjects(new[] { obj }));
 		}
 
@@ -470,6 +500,70 @@ namespace UnityEditor.Search
 		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
 		{
 			return TaskEvaluatorManager.EvaluateMainThread<SearchItem>(CreateItemsFromSelection);
+		}
+
+		[SearchExpressionEvaluator("deps", SearchExpressionType.Iterable)]
+		public static IEnumerable<SearchItem> SceneUses(SearchExpressionContext c)
+		{
+			var args = c.args[0].Execute(c);
+			foreach (var e in args)
+			{
+				if (e == null || e.value == null)
+				{
+					yield return null;
+					continue;
+				}
+
+				var id = e.value.ToString();
+				if (Utils.TryParse(id, out int instanceId))
+				{
+					foreach (var item in TaskEvaluatorManager.EvaluateMainThread(() => GetSceneObjectDependencies(c.search, instanceId).ToList()))
+						yield return item;
+				}
+			}
+		}
+
+		private static IEnumerable<SearchItem> GetSceneObjectDependencies(SearchContext context, int instanceId)
+		{
+			var go = EditorUtility.InstanceIDToObject(instanceId) as GameObject;
+			if (!go)
+				yield break;
+
+			var assetProvider = SearchService.GetProvider(Providers.AssetProvider.type);
+			var sceneProvider = SearchService.GetProvider(Providers.BuiltInSceneObjectsProvider.type);
+
+			// Index any prefab reference
+			var containerPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
+			if (!string.IsNullOrEmpty(containerPath))
+				yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, containerPath, 0, SearchDocumentFlags.Asset);
+
+			var gocs = go.GetComponents<Component>();
+			for (int componentIndex = 1; componentIndex < gocs.Length; ++componentIndex)
+			{
+				var c = gocs[componentIndex];
+				if (!c || (c.hideFlags & HideFlags.HideInInspector) == HideFlags.HideInInspector)
+					continue;
+
+				using (var so = new SerializedObject(c))
+				{
+					var p = so.GetIterator();
+					var next = p.NextVisible(true);
+					while (next)
+					{
+						if (p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue)
+						{
+							var assetPath = AssetDatabase.GetAssetPath(p.objectReferenceValue);
+							if (!string.IsNullOrEmpty(assetPath))
+								yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
+							else if (p.objectReferenceValue is GameObject cgo)
+								yield return Providers.SceneProvider.AddResult(context, sceneProvider, cgo);
+							else if (p.objectReferenceValue is Component cc && cc.gameObject)
+								yield return Providers.SceneProvider.AddResult(context, sceneProvider, cc.gameObject);
+						}
+						next = p.NextVisible(p.hasVisibleChildren);
+					}
+				}
+			}
 		}
 
 		private static void CreateItemsFromSelection(Action<SearchItem> yielder)
