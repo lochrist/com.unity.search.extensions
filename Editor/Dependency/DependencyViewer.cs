@@ -517,51 +517,68 @@ namespace UnityEditor.Search
 				var id = e.value.ToString();
 				if (Utils.TryParse(id, out int instanceId))
 				{
-					foreach (var item in TaskEvaluatorManager.EvaluateMainThread(() => GetSceneObjectDependencies(c.search, instanceId).ToList()))
+					var assetProvider = SearchService.GetProvider(Providers.AssetProvider.type);
+					var sceneProvider = SearchService.GetProvider(Providers.BuiltInSceneObjectsProvider.type);
+					foreach (var item in TaskEvaluatorManager.EvaluateMainThread(() =>
+						GetSceneObjectDependencies(c.search, sceneProvider, assetProvider, instanceId).ToList()))
+					{
 						yield return item;
+					}
 				}
 			}
 		}
 
-		private static IEnumerable<SearchItem> GetSceneObjectDependencies(SearchContext context, int instanceId)
+		private static IEnumerable<SearchItem> GetSceneObjectDependencies(SearchContext context, SearchProvider sceneProvider, SearchProvider assetProvider, int instanceId)
 		{
-			var go = EditorUtility.InstanceIDToObject(instanceId) as GameObject;
-			if (!go)
+			var obj = EditorUtility.InstanceIDToObject(instanceId);
+			if (!obj)
 				yield break;
 
-			var assetProvider = SearchService.GetProvider(Providers.AssetProvider.type);
-			var sceneProvider = SearchService.GetProvider(Providers.BuiltInSceneObjectsProvider.type);
-
-			// Index any prefab reference
-			var containerPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
-			if (!string.IsNullOrEmpty(containerPath))
-				yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, containerPath, 0, SearchDocumentFlags.Asset);
-
-			var gocs = go.GetComponents<Component>();
-			for (int componentIndex = 1; componentIndex < gocs.Length; ++componentIndex)
+			var go = EditorUtility.InstanceIDToObject(instanceId) as GameObject;
+			if (!go && obj is Component goc)
 			{
-				var c = gocs[componentIndex];
-				if (!c || (c.hideFlags & HideFlags.HideInInspector) == HideFlags.HideInInspector)
-					continue;
+				foreach (var ce in GetComponentDependencies(context, sceneProvider, assetProvider, goc))
+					yield return ce;
+			}
+			else if (go)
+			{
+				// Index any prefab reference
+				var containerPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
+				if (!string.IsNullOrEmpty(containerPath))
+					yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, containerPath, 0, SearchDocumentFlags.Asset);
 
-				using (var so = new SerializedObject(c))
+				var gocs = go.GetComponents<Component>();
+				for (int componentIndex = 1; componentIndex < gocs.Length; ++componentIndex)
 				{
-					var p = so.GetIterator();
-					var next = p.NextVisible(true);
-					while (next)
+					var c = gocs[componentIndex];
+					if (!c || (c.hideFlags & HideFlags.HideInInspector) == HideFlags.HideInInspector)
+						continue;
+
+					foreach (var ce in GetComponentDependencies(context, sceneProvider, assetProvider, c))
+						yield return ce;
+				}
+			}
+		}
+
+		static IEnumerable<SearchItem> GetComponentDependencies(SearchContext context, SearchProvider sceneProvider, SearchProvider assetProvider, Component c)
+		{
+			using (var so = new SerializedObject(c))
+			{
+				var p = so.GetIterator();
+				var next = p.NextVisible(true);
+				while (next)
+				{
+					if (p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue)
 					{
-						if (p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue)
-						{
-							var assetPath = AssetDatabase.GetAssetPath(p.objectReferenceValue);
-							if (!string.IsNullOrEmpty(assetPath))
-								yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
-							else if (p.objectReferenceValue is GameObject cgo)
-								yield return Providers.SceneProvider.AddResult(context, sceneProvider, cgo);
-							else if (p.objectReferenceValue is Component cc && cc.gameObject)
-								yield return Providers.SceneProvider.AddResult(context, sceneProvider, cc.gameObject);
-						}
-						next = p.NextVisible(p.hasVisibleChildren);
+						var assetPath = AssetDatabase.GetAssetPath(p.objectReferenceValue);
+						if (!string.IsNullOrEmpty(assetPath))
+							yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
+						else if (p.objectReferenceValue is GameObject cgo)
+							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cgo);
+						else if (p.objectReferenceValue is Component cc && cc.gameObject)
+							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cc.gameObject);
 					}
+					next = p.NextVisible(p.hasVisibleChildren);
 				}
 			}
 		}
