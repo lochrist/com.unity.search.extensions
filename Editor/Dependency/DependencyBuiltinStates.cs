@@ -76,7 +76,7 @@ namespace UnityEditor.Search
 		static DependencyViewerState UnusedAssets()
 		{
 			var state = new DependencyViewerState("Unused Assets");
-			var tableState = new DependencyState("Unused Assets", SearchService.CreateContext(new[] { "dep" }, "dep:in:1 is:valid is:file -is:package"));
+			var tableState = new DependencyState("Unused Assets", SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file is:valid -is:package"));
 			state.states.Add(tableState);
 			return state;
 		}

@@ -18,10 +18,10 @@ using System.Threading;
 // id:<guid>     => Yield asset with <guid>
 // path:<path>   => Yield asset at <path>
 // t:<extension> => Yield assets with <extension>
+//
 // is:file       => Yield file assets
 // is:folder     => Yield folder assets
 // is:package    => Yield package assets
-//
 // is:valid      => Yield assets which have no missing references
 // is:broken     => Yield assets that have at least one broken reference.
 // is:missing    => Yield GUIDs which are missing an valid asset (a GUID was found but no valid asset use that GUID)
@@ -45,6 +45,7 @@ static class Dependency
 	readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidToRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 	readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidFromRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 	readonly static Dictionary<string, int> guidToDocMap = new Dictionary<string, int>();
+	readonly static HashSet<string> ignoredGuids = new HashSet<string>();
 
 	readonly static string[] builtinGuids = new string[]
 	{
@@ -71,8 +72,10 @@ static class Dependency
 		guidToRefsMap.Clear();
 		guidFromRefsMap.Clear();
 		guidToDocMap.Clear();
+		ignoredGuids.Clear();
 
 		var allGuids = AssetDatabase.FindAssets("a:all");
+		ignoredGuids.UnionWith(AssetDatabase.FindAssets("l:Ignore"));
 		foreach (var guid in allGuids.Concat(builtinGuids))
 		{
 			TrackGuid(guid);
@@ -399,7 +402,7 @@ static class Dependency
 			if (match.Groups.Count < 2)
 				continue;
 			var rg = match.Groups[1].Value;
-			if (rg == guid)
+			if (rg == guid || ignoredGuids.Contains(rg))
 				continue;
 
 			TrackGuid(rg);
