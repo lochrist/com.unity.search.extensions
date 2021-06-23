@@ -44,41 +44,43 @@ namespace UnityEditor.Search
 		[DependencyViewerState]
 		internal static DependencyViewerState BrokenDependencies()
 		{
-			var state = new DependencyViewerState("Broken dependencies");
-			state.states.Add(new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken")));
-			return state;
+			return new DependencyViewerState("Broken dependencies", new [] {
+				new DependencyState("Broken dependencies", SearchService.CreateContext("dep", "is:broken"))
+			});
 		}
 
 		[DependencyViewerState]
 		internal static DependencyViewerState MissingDependencies()
 		{
-			var state = new DependencyViewerState("Missing dependencies");
-			state.states.Add(new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing")));
-			return state;
-		}
-
-		[DependencyViewerState]
-		static DependencyViewerState MostUsedAssets()
-		{
-			var state = new DependencyViewerState("Most Used Assets");
-
-			var defaultDepFlags = SearchColumnFlags.CanSort;
-			var tableConfig = new SearchTable(System.Guid.NewGuid().ToString("N"), "Name", new[] {
-				new SearchColumn("Name", "label", "name", null, defaultDepFlags),
-				new SearchColumn("Count", "value", null, defaultDepFlags)
+			return new DependencyViewerState("Missing dependencies", new [] {
+				new DependencyState("Missing dependencies", SearchService.CreateContext("dep", "is:missing"))
 			});
-			var tableState = new DependencyState("Most Used Assets", SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:to=\"@path\"}}, @value, desc}}"), tableConfig);
-			state.states.Add(tableState);
-			return state;
 		}
 
 		[DependencyViewerState]
-		static DependencyViewerState UnusedAssets()
+		internal static DependencyViewerState MostUsedAssets()
 		{
-			var state = new DependencyViewerState("Unused Assets");
-			var tableState = new DependencyState("Unused Assets", SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file is:valid -is:package"));
-			state.states.Add(tableState);
-			return state;
+			var defaultDepFlags = SearchColumnFlags.CanSort | SearchColumnFlags.IgnoreSettings;
+			var query = SearchService.CreateContext(new[] { "expression", "asset", "dep" }, "first{25,sort{select{p:a:assets, @path, count{dep:to=\"@path\"}}, @value, desc}}");
+			return new DependencyViewerState("Most Used Assets", new [] {
+					new DependencyState("Most Used Assets", query, new SearchTable("MostUsed", "Name", new[] {
+					new SearchColumn("Name", "label", "name", null, defaultDepFlags) { width = 390 },
+					new SearchColumn("Count", "value", null, defaultDepFlags) { width = 80 }
+				}))
+			});
+		}
+
+		[DependencyViewerState]
+		internal static DependencyViewerState UnusedAssets()
+		{
+			var query = SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file is:valid -is:package");
+			return new DependencyViewerState("Unused Assets", new [] {
+				new DependencyState("Unused Assets", query, new SearchTable("Unused", "Name", new[] {
+					new SearchColumn("Unused Assets", "label", "Name") { width = 380 },
+					new SearchColumn("Type", "type") { width = 90 },
+					new SearchColumn("Size", "size", "size")  { width = 80 }
+				}))
+			});
 		}
 	}
 }
