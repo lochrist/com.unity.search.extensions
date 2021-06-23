@@ -10,6 +10,7 @@ namespace UnityEditor.Search
 	interface IDependencyViewHost
 	{
 		void Repaint();
+		void PushViewerState(DependencyViewerState state);
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]
@@ -252,6 +253,18 @@ namespace UnityEditor.Search
 				Utils.PingAsset(SearchUtils.GetAssetPath(firstItem));
 		}
 
+		public void DoubleClick(SearchItem item)
+		{
+			var path = SearchUtils.GetAssetPath(item);
+			if (string.IsNullOrEmpty(path))
+				return;
+			var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
+			if (!obj)
+				return;
+
+			host.PushViewerState(DependencyBuiltinStates.StateFromObjects(new[] { obj }));
+		}
+
 		public void UpdateColumnSettings(int columnIndex, MultiColumnHeaderState.Column columnSettings)
 		{
 			var searchColumn = state.tableConfig.columns[columnIndex];
@@ -357,7 +370,7 @@ namespace UnityEditor.Search
 			Repaint();
 		}
 
-		void PushViewerState(DependencyViewerState state)
+		public void PushViewerState(DependencyViewerState state)
 		{
 			SetViewerState(state);
 			if (m_CurrentState.states.Count != 0)

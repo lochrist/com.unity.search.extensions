@@ -1,19 +1,19 @@
 #if USE_DEPENDENCY_PROVIDER
 using System.Collections.Generic;
+using System.Linq;
 
 namespace UnityEditor.Search
 {
 	static class DependencyBuiltinStates
 	{
-		[DependencyViewerState]
-		public static DependencyViewerState TrackSelection()
+		public static DependencyViewerState StateFromObjects(IEnumerable<UnityEngine.Object> objects)
 		{
-			if (Selection.objects.Length == 0)
-				return new DependencyViewerState("No Selection");
+			if (!objects.Any())
+				return new DependencyViewerState("No objects");
 
 			var globalObjectIds = new List<string>();
 			var selectedPaths = new List<string>();
-			foreach (var obj in Selection.objects)
+			foreach (var obj in objects)
 			{
 				var instanceId = obj.GetInstanceID();
 				var assetPath = AssetDatabase.GetAssetPath(obj);
@@ -30,6 +30,15 @@ namespace UnityEditor.Search
 				new DependencyState("Uses", SearchService.CreateContext(providers, $"from=[{selectedPathsStr}]")),
 				new DependencyState("Used By", SearchService.CreateContext(providers, $"to=[{selectedPathsStr}]"))
 			});
+		}
+
+		[DependencyViewerState]
+		public static DependencyViewerState TrackSelection()
+		{
+			if (Selection.objects.Length == 0)
+				return new DependencyViewerState("No Selection");
+
+			return StateFromObjects(Selection.objects);
 		}
 
 		[DependencyViewerState]
