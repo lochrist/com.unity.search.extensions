@@ -67,19 +67,19 @@ namespace UnityEditor.Search
 		public DependencyState(SearchQuery query)
 		{
 			m_Query = query;
-			m_TableConfig = query.tableConfig;
+			m_TableConfig = query.tableConfig == null || query.tableConfig.columns.Length == 0 ? CreateDefaultTable(query.name) : query.tableConfig;
 		}
 
 		public DependencyState(SearchQueryAsset query)
 		{
 			m_Query = query.ToSearchQuery();
-			m_TableConfig = m_Query.tableConfig;
+			m_TableConfig = m_Query.tableConfig == null || m_Query.tableConfig.columns.Length == 0 ? CreateDefaultTable(query.name) : m_Query.tableConfig;
 		}
 
 		public DependencyState(string name, SearchContext context, SearchTable tableConfig = null)
 		{
 			m_Name = name;
-			m_TableConfig = tableConfig ?? new SearchTable(Guid.NewGuid().ToString("N"), name, GetDefaultColumns());
+			m_TableConfig = tableConfig ?? CreateDefaultTable(name);
 			m_Query = new SearchQuery()
 			{
 				name = name,
@@ -89,13 +89,18 @@ namespace UnityEditor.Search
 			};
 		}
 
-		private IEnumerable<SearchColumn> GetDefaultColumns()
+		static public IEnumerable<SearchColumn> GetDefaultColumns(string tableName)
 		{
 			var defaultDepFlags = SearchColumnFlags.CanSort;
-			yield return new SearchColumn(m_Name, "label", "Name", null, defaultDepFlags);
+			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
 			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings) { width = 60 };
 			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
 			yield return new SearchColumn("Used #", "usedByCount", null, defaultDepFlags);
+		}
+
+		static public SearchTable CreateDefaultTable(string tableName)
+		{
+			return new SearchTable(Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
 		}
 
 		public void Dispose()
@@ -124,13 +129,14 @@ namespace UnityEditor.Search
 		[SerializeField] private GUIContent title;
 		[SerializeField] private GUIContent windowTitle;
 
-		public DependencyViewerState(string status)
+		public DependencyViewerState(string status, IEnumerable<DependencyState> states = null)
 				: this(status, new List<string>(), new List<DependencyState>())
 		{
 			title = new GUIContent(status);
+			this.states = states != null ? states.ToList() : new List<DependencyState>();
 		}
 
-		public DependencyViewerState(string status, List<string> globalIds, IEnumerable<DependencyState> states)
+		public DependencyViewerState(string status, List<string> globalIds, IEnumerable<DependencyState> states = null)
 		{
 			this.status = status;
 			this.globalIds = globalIds ?? new List<string>();
@@ -420,6 +426,21 @@ namespace UnityEditor.Search
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.handler()));
 
 			menu.AddSeparator("");
+
+			var depQueries = SearchQueryAsset.savedQueries.Where(sq =>
+			{
+				var labels = AssetDatabase.GetLabels(sq);
+				return labels.Any(l => l.ToLowerInvariant() == "dependencies");
+			}).ToArray();
+			if (depQueries.Length > 0)
+			{
+				foreach (var sq in depQueries)
+				{
+					menu.AddItem(new GUIContent(sq.name, sq.description), false, () => PushViewerState(new DependencyViewerState(sq.name, new[] { new DependencyState(sq) })));
+				}
+				menu.AddSeparator("");
+			}
+			
 			menu.AddItem(new GUIContent("Build"), false, () => Dependency.Build());
 			menu.ShowAsContext();
 		}
