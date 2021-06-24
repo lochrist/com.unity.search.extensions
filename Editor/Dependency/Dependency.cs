@@ -48,6 +48,7 @@ namespace UnityEditor.Search
 		readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidFromRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 		readonly static Dictionary<string, int> guidToDocMap = new Dictionary<string, int>();
 		readonly static HashSet<string> ignoredGuids = new HashSet<string>();
+		readonly static ConcurrentDictionary<string, int> usedByCounts = new ConcurrentDictionary<string, int>();
 
 		readonly static string[] builtinGuids = new string[]
 		{
@@ -157,6 +158,7 @@ namespace UnityEditor.Search
 
 		public static int GetReferenceCount(string id)
 		{
+			int usedByCount = -1;
 			#if USE_SEARCH_MODULE
 			var recordKey = PropertyDatabase.CreateRecordKey(id, "referenceCount");
 			using (var view = SearchMonitor.GetView())
@@ -164,6 +166,9 @@ namespace UnityEditor.Search
 				if (view.TryLoadProperty(recordKey, out object data))
 					return (int)data;
 			}
+			#else
+			if (usedByCounts.TryGetValue(id, out usedByCount))
+				return usedByCount;
 			#endif
 
 			var path = AssetDatabase.GUIDToAssetPath(id);
@@ -173,16 +178,19 @@ namespace UnityEditor.Search
 			var searchContext = SearchService.CreateContext(providerId, $"ref=\"{path}\"");
 			SearchService.Request(searchContext, (context, items) =>
 			{
+				usedByCount = items.Count;
 				#if USE_SEARCH_MODULE
 				using (var view = SearchMonitor.GetView())
 				{
 					view.Invalidate(recordKey);
-					view.StoreProperty(recordKey, items.Count);
+					view.StoreProperty(recordKey, usedByCount);
 				}
+				#else
+				usedByCounts[id] = usedByCount;
 				#endif
 				context.Dispose();
 			});
-			return -1;
+			return usedByCount;
 		}
 
 		static void Clear()
