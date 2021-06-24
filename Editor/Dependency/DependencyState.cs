@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor.IMGUI.Controls;
 using UnityEngine;
-using System.Linq;
 
 namespace UnityEditor.Search
 {
 	[Serializable]
-	class DependencyState : ISerializationCallbackReceiver
+	class DependencyState : ISerializationCallbackReceiver, IDisposable
 	{
 		[SerializeField] private SearchQuery m_Query;
 		[NonSerialized] private SearchTable m_TableConfig;
@@ -19,7 +17,7 @@ namespace UnityEditor.Search
 		public DependencyState(SearchQuery query)
 		{
 			m_Query = query;
-			m_TableConfig = query.tableConfig == null || query.tableConfig.columns.Length == 0 ? DependencyBuiltinStates.CreateDefaultTable(query.name) : query.tableConfig;
+			m_TableConfig = query.tableConfig == null || query.tableConfig.columns.Length == 0 ? CreateDefaultTable(query.name) : query.tableConfig;
 		}
 
 		public DependencyState(SearchQueryAsset query)
@@ -39,6 +37,11 @@ namespace UnityEditor.Search
 			};
 		}
 
+		public DependencyState(string name, SearchContext context)
+			: this(name, context, CreateDefaultTable(name))
+		{
+		}
+
 		public void Dispose()
 		{
 			m_Query.viewState?.context?.Dispose();
@@ -53,6 +56,20 @@ namespace UnityEditor.Search
 			if (m_TableConfig == null)
 				m_TableConfig = m_Query.tableConfig;
 			m_TableConfig?.InitFunctors();
+		}
+
+		static SearchTable CreateDefaultTable(string tableName)
+		{
+			return new SearchTable(Guid.NewGuid().ToString("N"), tableName, GetDefaultColumns(tableName));
+		}
+
+		static IEnumerable<SearchColumn> GetDefaultColumns(string tableName)
+		{
+			var defaultDepFlags = SearchColumnFlags.CanSort;
+			yield return new SearchColumn("Ref #", "refCount", null, defaultDepFlags | SearchColumnFlags.TextAlignmentRight) { width = 40 };
+			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
+			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings | SearchColumnFlags.Hidden) { width = 60 };
+			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
 		}
 	}
 }

@@ -8,13 +8,13 @@ namespace UnityEditor.Search
 {
 	class DependencyTableView : ITableView
 	{
-		public PropertyTable table;
+		readonly HashSet<SearchItem> m_Items;
+
 		public readonly DependencyState state;
+		public PropertyTable table;
 
-		HashSet<SearchItem> m_Items;
-
-		public IDependencyViewHost host { get; private set; }
 		public SearchContext context => state.context;
+		public IDependencyViewHost host { get; private set; }
 
 		public DependencyTableView(DependencyState state, IDependencyViewHost host)
 		{
@@ -29,21 +29,11 @@ namespace UnityEditor.Search
 			table?.OnGUI(rect);
 		}
 
-		private void BuildTable()
-		{
-			table = new PropertyTable(state.guid, this);
-			host.Repaint();
-		}
-
 		public void Reload()
 		{
 			m_Items.Clear();
 			SearchService.Request(state.context, (c, items) => m_Items.UnionWith(items), _ => BuildTable());
 		}
-
-		// ITableView
-		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
-		public SearchTable GetSearchTable() => throw new NotImplementedException();
 
 		public void AddColumn(Vector2 mousePosition, int activeColumnIndex)
 		{
@@ -62,13 +52,6 @@ namespace UnityEditor.Search
 			var columnAdded = columns.Count - columnCountBefore;
 			if (columnAdded > 0)
 			{
-				var firstColumn = newColumns.First();
-				var e = SearchAnalytics.GenericEvent.Create(null, SearchAnalytics.GenericEventType.QuickSearchTableAddColumn, firstColumn.name);
-				e.intPayload1 = columnAdded;
-				e.message = firstColumn.provider;
-				e.description = firstColumn.selector;
-				SearchAnalytics.SendEvent(e);
-
 				state.tableConfig.columns = columns.ToArray();
 				BuildTable();
 
@@ -143,17 +126,6 @@ namespace UnityEditor.Search
 				action.handler?.Invoke(item);
 		}
 
-		UnityEngine.Object GetObject(in SearchItem item)
-		{
-			UnityEngine.Object obj = null;
-			var path = SearchUtils.GetAssetPath(item);
-			if (!string.IsNullOrEmpty(path))
-				obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
-			if (!obj)
-				obj = item.ToObject();
-			return obj;
-		}
-
 		public void SetSelection(IEnumerable<SearchItem> items)
 		{
 			var firstItem = items.FirstOrDefault();
@@ -181,15 +153,9 @@ namespace UnityEditor.Search
 			searchColumn.options &= ~SearchColumnFlags.TextAligmentMask;
 			switch (columnSettings.headerTextAlignment)
 			{
-				case TextAlignment.Left:
-					searchColumn.options |= SearchColumnFlags.TextAlignmentLeft;
-					break;
-				case TextAlignment.Center:
-					searchColumn.options |= SearchColumnFlags.TextAlignmentCenter;
-					break;
-				case TextAlignment.Right:
-					searchColumn.options |= SearchColumnFlags.TextAlignmentRight;
-					break;
+				case TextAlignment.Left: searchColumn.options |= SearchColumnFlags.TextAlignmentLeft; break;
+				case TextAlignment.Center: searchColumn.options |= SearchColumnFlags.TextAlignmentCenter; break;
+				case TextAlignment.Right: searchColumn.options |= SearchColumnFlags.TextAlignmentRight; break;
 			}
 
 			SearchColumnSettings.Save(searchColumn);
@@ -210,10 +176,31 @@ namespace UnityEditor.Search
 			host.Repaint();
 		}
 
+		private void BuildTable()
+		{
+			table = new PropertyTable(state.guid, this);
+			host.Repaint();
+		}
+
+		UnityEngine.Object GetObject(in SearchItem item)
+		{
+			UnityEngine.Object obj = null;
+			var path = SearchUtils.GetAssetPath(item);
+			if (!string.IsNullOrEmpty(path))
+				obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path);
+			if (!obj)
+				obj = item.ToObject();
+			return obj;
+		}
+
 		private void OpenStateInSearch()
 		{
-			var searchViewState = new SearchViewState(state.context) { tableConfig = state.tableConfig };
+			var searchViewState = new SearchViewState(state.context) { tableConfig = state.tableConfig.Clone() };
 			SearchService.ShowWindow(searchViewState);
 		}
+
+		// ITableView
+		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
+		public SearchTable GetSearchTable() => throw new NotImplementedException();
 	}
 }

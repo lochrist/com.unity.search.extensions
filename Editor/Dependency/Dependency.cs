@@ -11,6 +11,8 @@ using UnityEditorInternal;
 using UnityEngine;
 using System.Threading;
 
+#pragma warning disable UNT0007 // Null coalescing on Unity objects
+
 namespace UnityEditor.Search
 {
 	// Syntax:
@@ -34,7 +36,7 @@ namespace UnityEditor.Search
 	// out=<count>   => Yield assets which have <count> references to other assets
 	static class Dependency
 	{
-		const string providerId = "dep";
+		public const string providerId = "dep";
 		const string dependencyIndexLibraryPath = "Library/dependencies.index";
 		readonly static Regex guidRx = new Regex(@"guid:\s+([a-z0-9]{32})");
 
@@ -46,7 +48,6 @@ namespace UnityEditor.Search
 		readonly static ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> guidFromRefsMap = new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>();
 		readonly static Dictionary<string, int> guidToDocMap = new Dictionary<string, int>();
 		readonly static HashSet<string> ignoredGuids = new HashSet<string>();
-		static DependencyInfo s_CurrentDependencyInfo = null;
 
 		readonly static string[] builtinGuids = new string[]
 		{
@@ -478,49 +479,9 @@ namespace UnityEditor.Search
 
 		static UnityEngine.Object ToObject(SearchItem item, Type type)
 		{
-			if (s_CurrentDependencyInfo)
-				ScriptableObject.DestroyImmediate(s_CurrentDependencyInfo);
-			s_CurrentDependencyInfo = ScriptableObject.CreateInstance<DependencyInfo>();
-			s_CurrentDependencyInfo.guid = item.id;
-			using (var context = SearchService.CreateContext(new string[] { providerId }, $"from:{item.id}"))
-			{
-				foreach (var r in SearchService.GetItems(context, SearchFlags.Synchronous))
-				{
-					var assetPath = AssetDatabase.GUIDToAssetPath(r.id);
-					if (string.IsNullOrEmpty(assetPath))
-						s_CurrentDependencyInfo.broken.Add(r.id);
-					else
-					{
-						var ur = AssetDatabase.LoadMainAssetAtPath(assetPath);
-						if (ur != null)
-							s_CurrentDependencyInfo.@using.Add(ur);
-						else
-							s_CurrentDependencyInfo.untracked.Add($"{assetPath} ({r.id})");
-					}
-				}
-			}
-
-			using (var context = SearchService.CreateContext(new string[] { providerId }, $"to:{item.id}"))
-			{
-				foreach (var r in SearchService.GetItems(context, SearchFlags.Synchronous))
-				{
-					var assetPath = AssetDatabase.GUIDToAssetPath(r.id);
-					if (string.IsNullOrEmpty(assetPath))
-						s_CurrentDependencyInfo.broken.Add(r.id);
-					else
-					{
-						{
-							var ur = AssetDatabase.LoadMainAssetAtPath(assetPath);
-							if (ur != null)
-								s_CurrentDependencyInfo.usedBy.Add(ur);
-							else
-								s_CurrentDependencyInfo.untracked.Add($"{assetPath} ({r.id})");
-						}
-					}
-				}
-			}
-
-			return s_CurrentDependencyInfo;
+			var depInfo = ScriptableObject.CreateInstance<DependencyInfo>();
+			depInfo.Load(item);
+			return depInfo;
 		}
 
 		static Texture2D FetchThumbnail(SearchItem item, SearchContext context)

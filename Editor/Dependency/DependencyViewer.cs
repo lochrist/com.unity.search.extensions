@@ -46,41 +46,9 @@ namespace UnityEditor.Search
 			UnityEditor.Selection.selectionChanged += OnSelectionChanged;
 		}
 
-		List<DependencyTableView> BuildViews(DependencyViewerState state)
-		{
-			return state.states.Select(s => new DependencyTableView(s, this)).ToList();
-		}
-
 		internal void OnDisable()
 		{
 			UnityEditor.Selection.selectionChanged -= OnSelectionChanged;
-		}
-
-		private void OnSelectionChanged()
-		{
-			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection || !m_CurrentState.trackSelection)
-				return;
-			PushViewerState(m_CurrentState.viewerProvider.CreateState());
-			Repaint();
-		}
-
-		private void SetViewerState(DependencyViewerState state)
-		{
-			m_CurrentState = state;
-			m_Views = BuildViews(m_CurrentState);
-			titleContent = m_CurrentState.windowTitle;
-		}
-
-		public void PushViewerState(DependencyViewerState state)
-		{
-			if (state == null)
-				return;
-			SetViewerState(state);
-			if (m_CurrentState.states.Count != 0)
-			{
-				m_History.Add(m_CurrentState);
-				m_HistoryCursor = m_History.Count - 1;
-			}
 		}
 
 		internal void OnGUI()
@@ -96,7 +64,7 @@ namespace UnityEditor.Search
 					if (GUILayout.Button("<"))
 						GotoPrevStates();
 					EditorGUI.EndDisabled();
-					EditorGUI.BeginDisabled(m_HistoryCursor == m_History.Count-1);
+					EditorGUI.BeginDisabled(m_HistoryCursor == m_History.Count - 1);
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabled();
@@ -141,22 +109,50 @@ namespace UnityEditor.Search
 			}
 		}
 
-		private void OnSourceChange()
+		public void PushViewerState(DependencyViewerState state)
+		{
+			if (state == null)
+				return;
+			SetViewerState(state);
+			if (m_CurrentState.states.Count != 0)
+			{
+				m_History.Add(m_CurrentState);
+				m_HistoryCursor = m_History.Count - 1;
+			}
+		}
+
+		List<DependencyTableView> BuildViews(DependencyViewerState state)
+		{
+			return state.states.Select(s => new DependencyTableView(s, this)).ToList();
+		}
+
+		void OnSelectionChanged()
+		{
+			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection || !m_CurrentState.trackSelection)
+				return;
+			PushViewerState(m_CurrentState.provider.CreateState());
+			Repaint();
+		}
+
+		void SetViewerState(DependencyViewerState state)
+		{
+			m_CurrentState = state;
+			m_Views = BuildViews(m_CurrentState);
+			titleContent = m_CurrentState.windowTitle;
+		}
+
+		void OnSourceChange()
 		{			
 			var menu = new GenericMenu();
-			foreach(var stateProvider in DependencyViewerProviderAttribute.s_StateProviders.Where(s => s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
+			foreach(var stateProvider in DependencyViewerProviderAttribute.providers.Where(s => s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
 			menu.AddSeparator("");
-			foreach (var stateProvider in DependencyViewerProviderAttribute.s_StateProviders.Where(s => !s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
+			foreach (var stateProvider in DependencyViewerProviderAttribute.providers.Where(s => !s.flags.HasFlag(DependencyViewerFlags.TrackSelection)))
 				menu.AddItem(new GUIContent(stateProvider.name), false, () => PushViewerState(stateProvider.CreateState()));
 
 			menu.AddSeparator("");
 
-			var depQueries = SearchQueryAsset.savedQueries.Where(sq =>
-			{
-				var labels = AssetDatabase.GetLabels(sq);
-				return labels.Any(l => l.ToLowerInvariant() == "dependencies");
-			}).ToArray();
+			var depQueries = SearchQueryAsset.savedQueries.Where(sq => AssetDatabase.GetLabels(sq).Any(l => l.ToLowerInvariant() == "dependencies")).ToArray();
 			if (depQueries.Length > 0)
 			{
 				foreach (var sq in depQueries)
@@ -170,123 +166,16 @@ namespace UnityEditor.Search
 			menu.ShowAsContext();
 		}				
 
-		private void GotoNextStates()
+		void GotoNextStates()
 		{
 			SetViewerState(m_History[++m_HistoryCursor]);
 			Repaint();
 		}
 
-		private void GotoPrevStates()
+		void GotoPrevStates()
 		{
 			SetViewerState(m_History[--m_HistoryCursor]);
 			Repaint();
-		}
-
-		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
-		public static void OpenNew()
-		{
-			var win = CreateWindow<DependencyViewer>();
-			win.position = Utils.GetMainWindowCenteredPosition(new Vector2(1000, 400));
-			win.Show();
-		}
-
-		[SearchExpressionEvaluator]
-		public static IEnumerable<SearchItem> Selection(SearchExpressionContext c)
-		{
-			return TaskEvaluatorManager.EvaluateMainThread<SearchItem>(CreateItemsFromSelection);
-		}
-
-		[SearchExpressionEvaluator("deps", SearchExpressionType.Iterable)]
-		public static IEnumerable<SearchItem> SceneUses(SearchExpressionContext c)
-		{
-			var args = c.args[0].Execute(c);
-			foreach (var e in args)
-			{
-				if (e == null || e.value == null)
-				{
-					yield return null;
-					continue;
-				}
-
-				var id = e.value.ToString();
-				if (Utils.TryParse(id, out int instanceId))
-				{
-					var assetProvider = SearchService.GetProvider(Providers.AssetProvider.type);
-					var sceneProvider = SearchService.GetProvider(Providers.BuiltInSceneObjectsProvider.type);
-					foreach (var item in TaskEvaluatorManager.EvaluateMainThread(() =>
-						GetSceneObjectDependencies(c.search, sceneProvider, assetProvider, instanceId).ToList()))
-					{
-						yield return item;
-					}
-				}
-			}
-		}
-
-		private static IEnumerable<SearchItem> GetSceneObjectDependencies(SearchContext context, SearchProvider sceneProvider, SearchProvider assetProvider, int instanceId)
-		{
-			var obj = EditorUtility.InstanceIDToObject(instanceId);
-			if (!obj)
-				yield break;
-
-			var go = EditorUtility.InstanceIDToObject(instanceId) as GameObject;
-			if (!go && obj is Component goc)
-			{
-				foreach (var ce in GetComponentDependencies(context, sceneProvider, assetProvider, goc))
-					yield return ce;
-			}
-			else if (go)
-			{
-				// Index any prefab reference
-				var containerPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
-				if (!string.IsNullOrEmpty(containerPath))
-					yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, containerPath, 0, SearchDocumentFlags.Asset);
-
-				var gocs = go.GetComponents<Component>();
-				for (int componentIndex = 1; componentIndex < gocs.Length; ++componentIndex)
-				{
-					var c = gocs[componentIndex];
-					if (!c || (c.hideFlags & HideFlags.HideInInspector) == HideFlags.HideInInspector)
-						continue;
-
-					foreach (var ce in GetComponentDependencies(context, sceneProvider, assetProvider, c))
-						yield return ce;
-				}
-			}
-		}
-
-		static IEnumerable<SearchItem> GetComponentDependencies(SearchContext context, SearchProvider sceneProvider, SearchProvider assetProvider, Component c)
-		{
-			using (var so = new SerializedObject(c))
-			{
-				var p = so.GetIterator();
-				var next = p.NextVisible(true);
-				while (next)
-				{
-					if (p.propertyType == SerializedPropertyType.ObjectReference && p.objectReferenceValue)
-					{
-						var assetPath = AssetDatabase.GetAssetPath(p.objectReferenceValue);
-						if (!string.IsNullOrEmpty(assetPath))
-							yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
-						else if (p.objectReferenceValue is GameObject cgo)
-							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cgo);
-						else if (p.objectReferenceValue is Component cc && cc.gameObject)
-							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cc.gameObject);
-					}
-					next = p.NextVisible(p.hasVisibleChildren);
-				}
-			}
-		}
-
-		private static void CreateItemsFromSelection(Action<SearchItem> yielder)
-		{
-			foreach (var obj in UnityEditor.Selection.objects)
-			{
-				var assetPath = AssetDatabase.GetAssetPath(obj);
-				if (!string.IsNullOrEmpty(assetPath))
-					yielder(EvaluatorUtils.CreateItem(assetPath));
-				else
-					yielder(EvaluatorUtils.CreateItem(obj.GetInstanceID()));
-			}
 		}
 	}
 }

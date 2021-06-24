@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEditor.Search;
-using UnityEditor;
 using UnityEditor.Search.Providers;
 
 static class CustomSelectors
@@ -8,7 +7,9 @@ static class CustomSelectors
 	[SceneQueryEngineFilter("vertices")]
 	internal static float? FilterMeshRendererMaterials(GameObject go)
 	{
+		#pragma warning disable UNT0008 // Null propagation on Unity objects
 		var meshFilter = go?.GetComponent<MeshFilter>();
+		#pragma warning restore UNT0008 // Null propagation on Unity objects
 		if (!meshFilter || !meshFilter.sharedMesh)
 			return null;
 		return meshFilter.sharedMesh.vertexCount;
