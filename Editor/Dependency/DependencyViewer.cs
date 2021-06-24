@@ -297,13 +297,67 @@ namespace UnityEditor.Search
 		}
 
 		// ITableView
-		public void AddColumn(Vector2 mousePosition, int activeColumnIndex) => throw new NotImplementedException();
-		public void AddColumns(IEnumerable<SearchColumn> descriptors, int activeColumnIndex) => throw new NotImplementedException();
-		public void SetupColumns(IEnumerable<SearchItem> elements = null) => throw new NotImplementedException();
-		public void RemoveColumn(int activeColumnIndex) => throw new NotImplementedException();
-		public void SwapColumns(int columnIndex, int swappedColumnIndex) => throw new NotImplementedException();
 		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
 		public SearchTable GetSearchTable() => throw new NotImplementedException();
+
+		public void AddColumn(Vector2 mousePosition, int activeColumnIndex)
+		{
+			var columns = SearchColumn.Enumerate(context, GetElements());
+			EditorApplication.CallDelayed(() => ColumnSelector.AddColumns(AddColumns, columns, mousePosition, activeColumnIndex));
+		}
+
+		public void AddColumns(IEnumerable<SearchColumn> newColumns, int insertColumnAt)
+		{
+			var columns = new List<SearchColumn>(state.tableConfig.columns);
+			if (insertColumnAt == -1)
+				insertColumnAt = columns.Count;
+			var columnCountBefore = columns.Count;
+			columns.InsertRange(insertColumnAt, newColumns);
+
+			var columnAdded = columns.Count - columnCountBefore;
+			if (columnAdded > 0)
+			{
+				var firstColumn = newColumns.First();
+				var e = SearchAnalytics.GenericEvent.Create(null, SearchAnalytics.GenericEventType.QuickSearchTableAddColumn, firstColumn.name);
+				e.intPayload1 = columnAdded;
+				e.message = firstColumn.provider;
+				e.description = firstColumn.selector;
+				SearchAnalytics.SendEvent(e);
+
+				state.tableConfig.columns = columns.ToArray();
+				BuildTable();
+
+				table?.FrameColumn(insertColumnAt - 1);
+			}
+		}
+
+		public void SetupColumns(IEnumerable<SearchItem> elements = null)
+		{
+			BuildTable();
+		}
+
+		public void RemoveColumn(int removeColumnAt)
+		{
+			if (removeColumnAt == -1)
+				return;
+
+			var columns = new List<SearchColumn>(state.tableConfig.columns);
+			columns.RemoveAt(removeColumnAt);
+			state.tableConfig.columns = columns.ToArray();
+			BuildTable();
+		}
+
+		public void SwapColumns(int columnIndex, int swappedColumnIndex)
+		{
+			if (swappedColumnIndex == -1)
+				return;
+
+			var columns = state.tableConfig.columns;
+			var temp = columns[columnIndex];
+			columns[columnIndex] = columns[swappedColumnIndex];
+			columns[swappedColumnIndex] = temp;
+			SetDirty();
+		}
 
 		public bool IsReadOnly()
 		{
@@ -413,10 +467,7 @@ namespace UnityEditor.Search
 
 		private void OpenStateInSearch()
 		{
-			var searchViewState = new SearchViewState(state.context)
-			{
-				tableConfig = state.tableConfig
-			};
+			var searchViewState = new SearchViewState(state.context) { tableConfig = state.tableConfig };
 			SearchService.ShowWindow(searchViewState);
 		}
 	}
