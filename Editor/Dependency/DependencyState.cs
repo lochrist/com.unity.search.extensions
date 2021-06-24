@@ -68,7 +68,7 @@ namespace UnityEditor.Search
 			var defaultDepFlags = SearchColumnFlags.CanSort;
 			yield return new SearchColumn("Ref #", "refCount", null, defaultDepFlags | SearchColumnFlags.TextAlignmentRight) { width = 40 };
 			yield return new SearchColumn(tableName, "label", "Name", null, defaultDepFlags);
-			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.IgnoreSettings | SearchColumnFlags.Hidden) { width = 60 };
+			yield return new SearchColumn("Type", "type", null, defaultDepFlags | SearchColumnFlags.Hidden) { width = 60 };
 			yield return new SearchColumn("Size", "size", "size", null, defaultDepFlags);
 		}
 	}
