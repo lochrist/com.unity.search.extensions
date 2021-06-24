@@ -112,7 +112,7 @@ namespace UnityEditor.Search
 		{
 			if (globalIds == null || globalIds.Count == 0 || !GlobalObjectId.TryParse(globalIds[0], out var gid))
 				return Icons.dependencies;
-			return AssetDatabase.GetCachedIcon(AssetDatabase.GUIDToAssetPath(gid.m_AssetGUID)) ?? Icons.dependencies;
+			return AssetDatabase.GetCachedIcon(AssetDatabase.GUIDToAssetPath(gid.assetGUID)) ?? Icons.dependencies;
 		}
 
 		Texture GetPreview()
@@ -121,7 +121,9 @@ namespace UnityEditor.Search
 				return Icons.dependencies;
 			var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
 			return AssetPreview.GetAssetPreview(obj)
+				#if USE_SEARCH_MODULE
 				?? AssetPreview.GetAssetPreviewFromGUID(gid.assetGUID.ToString())
+				#endif
 				?? Icons.dependencies;
 		}
 

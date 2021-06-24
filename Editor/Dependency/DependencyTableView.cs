@@ -37,8 +37,10 @@ namespace UnityEditor.Search
 
 		public void AddColumn(Vector2 mousePosition, int activeColumnIndex)
 		{
+			#if USE_SEARCH_MODULE
 			var columns = SearchColumn.Enumerate(context, GetElements());
-			EditorApplication.CallDelayed(() => ColumnSelector.AddColumns(AddColumns, columns, mousePosition, activeColumnIndex));
+			Utils.CallDelayed(() => ColumnSelector.AddColumns(AddColumns, columns, mousePosition, activeColumnIndex));
+			#endif
 		}
 
 		public void AddColumns(IEnumerable<SearchColumn> newColumns, int insertColumnAt)

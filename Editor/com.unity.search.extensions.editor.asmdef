@@ -2,7 +2,8 @@
     "name": "com.unity.search.extensions.editor",
     "rootNamespace": "",
     "references": [
-        "GUID:388060bf34f9a6a40bafbac77240e259"
+        "GUID:388060bf34f9a6a40bafbac77240e259",
+        "GUID:91807968f761a6d49b0fd6a602d2cbba"
     ],
     "includePlatforms": [
         "Editor"

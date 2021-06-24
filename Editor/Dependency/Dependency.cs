@@ -157,12 +157,14 @@ namespace UnityEditor.Search
 
 		public static int GetReferenceCount(string id)
 		{
+			#if USE_SEARCH_MODULE
 			var recordKey = PropertyDatabase.CreateRecordKey(id, "referenceCount");
 			using (var view = SearchMonitor.GetView())
 			{
 				if (view.TryLoadProperty(recordKey, out object data))
 					return (int)data;
 			}
+			#endif
 
 			var path = AssetDatabase.GUIDToAssetPath(id);
 			if (path == null || Directory.Exists(path))
@@ -171,11 +173,13 @@ namespace UnityEditor.Search
 			var searchContext = SearchService.CreateContext(providerId, $"ref=\"{path}\"");
 			SearchService.Request(searchContext, (context, items) =>
 			{
+				#if USE_SEARCH_MODULE
 				using (var view = SearchMonitor.GetView())
 				{
 					view.Invalidate(recordKey);
 					view.StoreProperty(recordKey, items.Count);
 				}
+				#endif
 				context.Dispose();
 			});
 			return -1;

@@ -60,28 +60,30 @@ namespace UnityEditor.Search
 			{
 				using (new GUILayout.HorizontalScope(Search.Styles.searchReportField))
 				{
-					EditorGUI.BeginDisabled(m_HistoryCursor <= 0);
+					EditorGUI.BeginDisabledGroup(m_HistoryCursor <= 0);
 					if (GUILayout.Button("<"))
 						GotoPrevStates();
-					EditorGUI.EndDisabled();
-					EditorGUI.BeginDisabled(m_HistoryCursor == m_History.Count - 1);
+					EditorGUI.EndDisabledGroup();
+					EditorGUI.BeginDisabledGroup(m_HistoryCursor == m_History.Count - 1);
 					if (GUILayout.Button(">"))
 						GotoNextStates();
-					EditorGUI.EndDisabled();
+					EditorGUI.EndDisabledGroup();
 					GUILayout.Label(m_CurrentState.description, GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
 					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.name), FocusType.Passive))
 						OnSourceChange();
 					EditorGUI.BeginChangeCheck();
 
-					EditorGUI.BeginDisabled(!m_CurrentState.trackSelection);
+					EditorGUI.BeginDisabledGroup(!m_CurrentState.trackSelection);
 					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
 					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
 						OnSelectionChanged();
-					EditorGUI.EndDisabled();
+					EditorGUI.EndDisabledGroup();
 				}
 
+				#if USE_SEARCH_MODULE
 				using (SearchMonitor.GetView())
+				#endif
 				{
 					if (m_Views != null && m_Views.Count >= 1)
 					{
