@@ -238,8 +238,6 @@ namespace UnityEditor.Search
 
 		private void DrawNodeWindow(in Rect windowRect, Event evt, in Node node)
 		{
-			bool handled = false;
-
 			const float kPreviewOffsetY = 10.0f;
 			if (evt.type == EventType.Repaint)
 			{
