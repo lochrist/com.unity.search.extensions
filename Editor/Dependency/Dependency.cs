@@ -666,7 +666,7 @@ namespace UnityEditor.Search
 		{
 			if (index == null)
 				OnEnable();
-			while (!index.IsReady())
+			while (index == null || !index.IsReady())
 				yield return null;
 			foreach (var e in index.Search(context.searchQuery.ToLowerInvariant(), context, provider))
 			{

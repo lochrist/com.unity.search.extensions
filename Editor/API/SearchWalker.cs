@@ -13,7 +13,7 @@ using System.Reflection;
 
 static class SearchWalker
 {
-	[MenuItem("Search/Search And Update")]
+	[MenuItem("Window/Search/Search And Update")]
 	public static void ExecuteSearchUpdate()
 	{
 		// IMPORTANT: Make sure to have a proper index setup.

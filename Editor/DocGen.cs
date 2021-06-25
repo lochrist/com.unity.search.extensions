@@ -18,7 +18,7 @@ public static class DocGen
 		public SearchQueryAsset query;
 	}
 
-	[MenuItem("Tools/Print Query Doc Markdown", false, 100000)]
+	[MenuItem("Window/Search/Tools/Print Query Doc Markdown", false, 100000)]
 	static void PrintSearchQueryDoc()
 	{
 		var queries = SearchQueryAsset.savedQueries;
@@ -27,7 +27,7 @@ public static class DocGen
 		Debug.Log(report);
 	}
 
-	[MenuItem("Tools/Write Query Doc Markdown", false, 100000)]
+	[MenuItem("Window/Search/Tools/Write Query Doc Markdown", false, 100000)]
 	static void GenerateSearchQueryDoc()
 	{
 		var queries = SearchQueryAsset.savedQueries;
