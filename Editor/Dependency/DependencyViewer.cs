@@ -53,7 +53,7 @@ namespace UnityEditor.Search
 
 		internal void OnGUI()
 		{
-			m_Splitter.Init(position.width / 2.0f);
+            m_Splitter.Init(position.width / 2.0f);
 			var evt = Event.current;
 
 			using (new EditorGUILayout.VerticalScope(GUIStyle.none, GUILayout.ExpandHeight(true)))
@@ -68,13 +68,13 @@ namespace UnityEditor.Search
 					if (GUILayout.Button(">"))
 						GotoNextStates();
 					EditorGUI.EndDisabledGroup();
-					GUILayout.Label(m_CurrentState.description, GUILayout.Height(18f));
+					GUILayout.Label(m_CurrentState?.description ?? Utils.GUIContentTemp("No selection"), GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
 					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.name), FocusType.Passive))
 						OnSourceChange();
 					EditorGUI.BeginChangeCheck();
 
-					EditorGUI.BeginDisabledGroup(!m_CurrentState.trackSelection);
+					EditorGUI.BeginDisabledGroup(!m_CurrentState?.trackSelection ?? true);
 					m_LockSelection = GUILayout.Toggle(m_LockSelection, GUIContent.none, Styles.lockButton);
 					if (EditorGUI.EndChangeCheck() && !m_LockSelection)
 						OnSelectionChanged();
