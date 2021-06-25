@@ -64,7 +64,6 @@ namespace UnityEditor.Search
                     n = graph.Add(depID, pos);
                     n.pinned = true;
                     n.rect.position = npos;
-					Debug.Log($"Node added at {n.rect}");
                     npos.x += n.rect.size.x * 1.5f;
                     gridPositionIndex++;
 
@@ -256,17 +255,15 @@ namespace UnityEditor.Search
 			var buttonRect = new Rect(windowRect.width - kRightPadding, windowRect.height - kBottomPadding - 4f, kButtonWidth, kButtonHeight);
 			if (!node.expanded && GUI.Button(buttonRect, "+"))
 			{
-				/*var expandedNodes = */graph.ExpandNode(node);
+				graph.ExpandNode(node);
 				graphLayout.Calculate(graph, 0.05f);
 				handled = true;
 			}
 
 			buttonRect = new Rect(windowRect.width - kRightPadding, kBottomPadding, 23, 26);
-			bool hasChanged = node.pinned;
 			node.pinned = EditorGUI.Toggle(buttonRect, node.pinned);
-			handled |= hasChanged != node.pinned;
 
-			if (!handled && evt.type == EventType.MouseDown)
+			if (evt.type == EventType.MouseDown)
 			{
 				if (evt.button == 0)
 				{
@@ -275,7 +272,6 @@ namespace UnityEditor.Search
 					{
 						selecteNode = node;
 						EditorGUIUtility.PingObject(selectedObject.GetInstanceID());
-						Debug.Log($"Node position={node.rect.position}, pan={pan}");
 					}
 					else if (evt.clickCount == 2)
 					{
@@ -283,7 +279,12 @@ namespace UnityEditor.Search
 						evt.Use();
 					}
                 }
-			}
+				else if (evt.button == 2)
+                {
+                    node.pinned = !node.pinned;
+                    evt.Use();
+                }
+            }            
 			GUI.DragWindow();
 		}
 
