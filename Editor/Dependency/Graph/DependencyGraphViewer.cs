@@ -39,42 +39,55 @@ namespace UnityEditor.Search
 
 		private void Import(ICollection<UnityEngine.Object> objects)
 		{
-			var npos = pan;
-			int gridPositionIndex = 0;
-			var gridSquareSize = Mathf.RoundToInt(Mathf.Sqrt(objects.Count));
-			foreach (var e in objects)
-			{
-				var path = AssetDatabase.GetAssetPath(e);
-				if (string.IsNullOrEmpty(path))
-					continue;
-
-				int depID = db.FindResourceByName(path);
-				if (depID < 0)
-					continue;
-				var n = graph.FindNode(depID) ?? graph.Add(depID, pan + graphRect.center);
-				n.pinned = false;
-				n.rect.position = npos;
-				npos.x += n.rect.size.x * 1.5f;
-				gridPositionIndex++;
-				if (gridPositionIndex > gridSquareSize)
-				{
-					npos.x = pan.x;
-					npos.y += n.rect.size.y * 1.5f;
-					gridPositionIndex = 0;
-				}
-
-				var deps = db.GetResourceDependencies(depID).Where(did => graph.FindNode(did) != null);
-				graph.AddNodes(n, deps.ToArray(), LinkType.DirectIn, null);
-
-				var refs = db.GetResourceReferences(depID).Where(did => graph.FindNode(did) != null);
-				graph.AddNodes(n, refs.ToArray(), LinkType.DirectOut, null);
-			}
-
+			Add(objects, ViewCenter());
 			if (graphLayout == null)
 				SetLayout(new OrganicLayout());
 		}
 
-		internal void OnGUI()
+        private void Add(ICollection<UnityEngine.Object> objects, in Vector2 pos)
+        {
+            var npos = pos;
+            int gridPositionIndex = 0;
+            var gridSquareSize = Mathf.RoundToInt(Mathf.Sqrt(objects.Count));
+            foreach (var e in objects)
+            {
+                var path = AssetDatabase.GetAssetPath(e);
+                if (string.IsNullOrEmpty(path))
+                    continue;
+
+                int depID = db.FindResourceByName(path);
+                if (depID < 0)
+                    continue;
+                var n = graph.FindNode(depID);
+				if (n == null)
+                {
+                    n = graph.Add(depID, pos);
+                    n.pinned = true;
+                    n.rect.position = npos;
+					Debug.Log($"Node added at {n.rect}");
+                    npos.x += n.rect.size.x * 1.5f;
+                    gridPositionIndex++;
+
+                    if (gridPositionIndex > gridSquareSize)
+                    {
+                        npos.x = pos.x;
+                        npos.y += n.rect.size.y * 1.5f;
+                        gridPositionIndex = 0;
+                    }
+                }
+
+                var deps = db.GetResourceDependencies(depID).Where(did => graph.FindNode(did) != null);
+                graph.AddNodes(n, deps.ToArray(), LinkType.DirectIn, null);
+
+                var refs = db.GetResourceReferences(depID).Where(did => graph.FindNode(did) != null);
+                graph.AddNodes(n, refs.ToArray(), LinkType.DirectOut, null);
+            }
+
+            if (graphLayout == null)
+                SetLayout(new OrganicLayout());
+        }
+
+        internal void OnGUI()
 		{
 			if (db == null || graph == null || graph.nodes == null)
 				return;
@@ -93,7 +106,17 @@ namespace UnityEditor.Search
 				kNodeSize, kNodeSize);
 		}
 
-		private void HandleEvent(Event e)
+		Vector2 LocalToView(in Vector2 localPosition)
+        {
+			return localPosition * 1f / zoom - pan;
+		}
+
+        Vector2 ViewCenter()
+        {
+            return LocalToView(graphRect.center);
+        }
+
+        private void HandleEvent(Event e)
 		{
 			if (e.type == EventType.MouseDrag)
 			{
@@ -101,6 +124,10 @@ namespace UnityEditor.Search
 				pan.y += e.delta.y / zoom;
 				e.Use();
 			}
+			else if (e.type == EventType.MouseDown)
+            {
+				Debug.Log($"P={LocalToView(e.mousePosition)}, C={ViewCenter()}");
+            }
 			else if (e.type == EventType.ScrollWheel)
 			{
 				var zoomDelta = 0.1f;
@@ -115,17 +142,39 @@ namespace UnityEditor.Search
 
 				e.Use();
 			}
-
-			if (selecteNode != null && e.type == EventType.KeyDown && e.keyCode == KeyCode.Delete)
+			else if (selecteNode != null && e.type == EventType.KeyDown && e.keyCode == KeyCode.Delete)
 			{
 				graph.edges.RemoveAll(e => e.Source == selecteNode || e.Target == selecteNode);
 				graph.nodes.Remove(selecteNode);
 				selecteNode = null;
 				e.Use();
 			}
-		}
+			else if (e.type == EventType.DragUpdated)
+            {
+                if (IsDragTargetValid()) 
+					DragAndDrop.visualMode = DragAndDropVisualMode.Link;
+                else 
+					DragAndDrop.visualMode = DragAndDropVisualMode.Rejected;
+				e.Use();
+            }
+            else if (e.type == EventType.DragPerform)
+            {
+                HandleDragPerform(e);
+				e.Use();
+            }
+        }
 
-		private Color GetLinkColor(in LinkType linkType)
+        private void HandleDragPerform(in Event e)
+        {
+            Add(DragAndDrop.objectReferences, LocalToView(e.mousePosition));
+        }
+
+        private bool IsDragTargetValid()
+        {
+            return DragAndDrop.objectReferences.Any(o => AssetDatabase.GetAssetPath(o) != null);
+        }
+
+        private Color GetLinkColor(in LinkType linkType)
 		{
 			switch (linkType)
 			{
@@ -226,13 +275,14 @@ namespace UnityEditor.Search
 					{
 						selecteNode = node;
 						EditorGUIUtility.PingObject(selectedObject.GetInstanceID());
+						Debug.Log($"Node position={node.rect.position}, pan={pan}");
 					}
 					else if (evt.clickCount == 2)
 					{
 						Selection.activeObject = selectedObject;
-						//ShowDependencyViewer();
+						evt.Use();
 					}
-				}
+                }
 			}
 			GUI.DragWindow();
 		}
