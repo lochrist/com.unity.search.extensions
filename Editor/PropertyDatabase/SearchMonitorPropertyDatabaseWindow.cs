@@ -1,7 +1,4 @@
-#if !USE_SEARCH_MODULE
-using UnityEditor.Experimental.SceneManagement;
-#endif
-
+#if USE_SEARCH_MODULE
 using UnityEditor.Search;
 using UnityEditor;
 
@@ -15,3 +12,4 @@ class SearchMonitorPropertyDatabaseWindow : EditorWindow
         window.Show(true);
     }
 }
+#endif
