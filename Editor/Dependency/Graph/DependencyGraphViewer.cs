@@ -255,7 +255,6 @@ namespace UnityEditor.Search
 			{
 				graph.ExpandNode(node);
 				graphLayout.Calculate(graph, 0.05f);
-				handled = true;
 			}
 
 			buttonRect = new Rect(windowRect.width - kRightPadding, kBottomPadding, 23, 26);
