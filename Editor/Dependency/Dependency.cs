@@ -162,8 +162,8 @@ namespace UnityEditor.Search
                     return (int)data;
             }
             #else
-			if (usedByCounts.TryGetValue(id, out usedByCount))
-				return usedByCount;
+            if (usedByCounts.TryGetValue(id, out usedByCount))
+                return usedByCount;
             #endif
 
             var path = AssetDatabase.GUIDToAssetPath(id);
@@ -181,7 +181,7 @@ namespace UnityEditor.Search
                     view.StoreProperty(recordKey, usedByCount);
                 }
                 #else
-				usedByCounts[id] = usedByCount;
+                usedByCounts[id] = usedByCount;
                 #endif
                 context.Dispose();
             });
@@ -665,9 +665,13 @@ namespace UnityEditor.Search
 
         static UnityEngine.Object GetObject(in SearchItem item)
         {
+            #if USE_SEARCH_MODULE
             if (GUID.TryParse(item.id, out var guid))
                 return AssetDatabase.LoadMainAssetAtGUID(guid);
             return null;
+            #else
+            return AssetDatabase.LoadMainAssetAtPath(AssetDatabase.GUIDToAssetPath(item.id));
+            #endif
         }
 
         static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)

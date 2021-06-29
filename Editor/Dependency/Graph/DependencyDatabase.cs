@@ -29,7 +29,7 @@ namespace UnityEditor.Search
 		public readonly string path;
 
 		System.Type m_Type;
-		Texture2D m_Preview;
+		Texture m_Preview;
 		int? m_InstanceID;
 
 		public System.Type type
@@ -42,12 +42,12 @@ namespace UnityEditor.Search
 			}
 		}
 
-		public Texture2D preview
+		public Texture preview
 		{
 			get
 			{
 				if (!m_Preview)
-					m_Preview = AssetPreview.GetAssetPreview(instanceID);
+					m_Preview = AssetDatabase.GetCachedIcon(path);
 				return m_Preview;
 			}
 		}
@@ -57,7 +57,7 @@ namespace UnityEditor.Search
 			get
 			{
 				if (!m_InstanceID.HasValue)
-					m_InstanceID = AssetDatabase.GetMainAssetInstanceID(path);
+					m_InstanceID = Utils.GetMainAssetInstanceID(path);
 				return m_InstanceID.Value;
 			}
 		}
@@ -150,7 +150,7 @@ namespace UnityEditor.Search
 			return new int[0];
 		}
 
-        public Texture2D GetResourcePreview(int id)
+        public Texture GetResourcePreview(int id)
 		{
 			if (!m_Items.TryGetValue(id, out var di))
 				return null;

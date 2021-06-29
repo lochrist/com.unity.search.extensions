@@ -28,8 +28,8 @@ namespace UnityEditor.Search
         // UI data
         public Rect rect;
         public bool previewFetched = false;
-        public Texture2D cachedPreview = null;
-        public Texture2D preview
+        public Texture cachedPreview = null;
+        public Texture preview
         {
             get
             {
@@ -41,7 +41,7 @@ namespace UnityEditor.Search
                 if (cachedPreview)
                     return cachedPreview;
                 cachedPreview = null;
-                return AssetDatabase.GetCachedIcon(name) as Texture2D;
+                return AssetDatabase.GetCachedIcon(name);
             }
         }
         public LinkType linkType;
