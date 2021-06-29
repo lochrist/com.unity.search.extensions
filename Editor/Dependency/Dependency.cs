@@ -72,11 +72,12 @@ namespace UnityEditor.Search
 				fetchDescription = FetchDescription,
 				fetchThumbnail = FetchThumbnail,
 				trackSelection = TrackSelection,
-				toObject = ToObject
+				toObject = ToObject,
+				startDrag = StartDrag
 			};
 		}
 
-		[SearchActionsProvider]
+        [SearchActionsProvider]
 		internal static IEnumerable<SearchAction> ActionHandlers()
 		{
 			yield return SelectAsset();
@@ -485,10 +486,15 @@ namespace UnityEditor.Search
 
 		static UnityEngine.Object ToObject(SearchItem item, Type type)
 		{
-			var depInfo = ScriptableObject.CreateInstance<DependencyInfo>();
-			depInfo.Load(item);
-			return depInfo;
-		}
+			if (item.options.HasAny(SearchItemOptions.FullDescription))
+            {
+                var depInfo = ScriptableObject.CreateInstance<DependencyInfo>();
+                depInfo.Load(item);
+                return depInfo;
+            }
+			else
+				return GetObject(item);
+        }
 
 		static Texture2D FetchThumbnail(SearchItem item, SearchContext context)
 		{
@@ -640,7 +646,31 @@ namespace UnityEditor.Search
 			Utils.PingAsset(AssetDatabase.GUIDToAssetPath(item.id));
 		}
 
-		static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)
+        static void StartDrag(SearchItem item, SearchContext context)
+        {
+			if (context.selection?.Count > 1)
+            {
+                var selectedObjects = context.selection.Select(i => GetObject(i));
+                var paths = context.selection.Select(i => GetAssetPath(i)).ToArray();
+                Utils.StartDrag(selectedObjects.ToArray(), paths, item.GetLabel(context, true));
+            }
+            else
+                Utils.StartDrag(new[] { GetObject(item) }, new[] { GetAssetPath(item) }, item.GetLabel(context, true));
+        }
+
+        private static string GetAssetPath(in SearchItem item)
+        {
+            return AssetDatabase.GUIDToAssetPath(item.id);
+        }
+
+        static UnityEngine.Object GetObject(in SearchItem item)
+        {
+			if (GUID.TryParse(item.id, out var guid))
+				return AssetDatabase.LoadMainAssetAtGUID(guid);
+			return null;
+		}
+
+        static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)
 		{
 			if (index == null)
 				OnEnable();
