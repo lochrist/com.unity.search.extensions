@@ -7,7 +7,10 @@ namespace UnityEditor.Search
 {
 	static class DependencyExtensions
 	{
-		[MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
+        static GUIStyle dirPathStyle;
+        static GUIStyle filenameStyle;
+
+        [MenuItem("Window/Search/Dependency Viewer", priority = 5679)]
 		internal static void OpenNew()
 		{
 			var win = EditorWindow.CreateWindow<DependencyViewer>();
@@ -91,9 +94,15 @@ namespace UnityEditor.Search
 					{
 						var assetPath = AssetDatabase.GetAssetPath(p.objectReferenceValue);
 						if (!string.IsNullOrEmpty(assetPath))
-							yield return Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
+						{
+							var item = Providers.AssetProvider.CreateItem("DEPS", context, assetProvider, null, assetPath, 0, SearchDocumentFlags.Asset);
+							item.label = assetPath;
+							yield return item;
+						}
 						else if (p.objectReferenceValue is GameObject cgo)
+						{
 							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cgo);
+						}
 						else if (p.objectReferenceValue is Component cc && cc.gameObject)
 							yield return Providers.SceneProvider.AddResult(context, sceneProvider, cc.gameObject);
 					}
@@ -113,5 +122,52 @@ namespace UnityEditor.Search
 					yielder(EvaluatorUtils.CreateItem(obj.GetInstanceID()));
 			}
 		}
-	}
+
+		[SearchColumnProvider("path")]
+		internal static void InitializePathColumn(SearchColumn column)
+		{
+			column.drawer = DrawPath;
+		}
+
+		private static object DrawPath(SearchColumnEventArgs args)
+        {
+            if (Event.current.type != EventType.Repaint || !(args.value is string path) || string.IsNullOrEmpty(path))
+                return args.value;
+            
+			path = path.Trim('/', '\\');
+			if (filenameStyle == null)
+            {
+                var itemStyle = ItemSelectors.GetItemContentStyle(args.column);
+                filenameStyle = new GUIStyle(itemStyle) { padding = new RectOffset(0, 0, 0, 0) };
+            }
+            if (dirPathStyle == null)
+			{ 
+                dirPathStyle = new GUIStyle(filenameStyle) { fontSize = filenameStyle.fontSize - 3, padding = new RectOffset(2, 0, 0, 0) };
+			}
+
+            var rect = args.rect;
+            var dirName = System.IO.Path.GetDirectoryName(path);
+			var thumbnail = args.item.GetThumbnail(args.item.context ?? args.context);
+			if (string.IsNullOrEmpty(dirName))
+            {
+				var filenameContent = Utils.GUIContentTemp(path, thumbnail);
+				filenameStyle.Draw(rect, filenameContent, false, false, false, false);
+			}
+            else
+            {
+				var dir = Utils.GUIContentTemp(System.IO.Path.GetDirectoryName(path).Replace("\\", "/") + "/", thumbnail);
+                var dirPathWidth = dirPathStyle.CalcSize(dir).x;
+				var oldColor = GUI.color;
+				GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * 0.8f);
+                dirPathStyle.Draw(rect, dir, false, false, false, false);
+                rect.xMin += dirPathWidth;
+				GUI.color = oldColor;
+
+				var filename = System.IO.Path.GetFileName(path);
+				filenameStyle.Draw(rect, filename, false, false, false, false);
+			}
+
+            return args.value;
+        }
+    }
 }

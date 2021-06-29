@@ -84,12 +84,6 @@ namespace UnityEditor.Search
 			yield return Goto("Used By", "Show Uses References", "ref");
 			yield return Goto("Missing", "Show broken links", "is:missing from");
 			yield return LogRefs();
-
-			if (SearchService.GetProvider("asset")?.active ?? false)
-			{
-				yield return new SearchAction("asset", "uses", new GUIContent("Find Uses"), FindUsings);
-				yield return new SearchAction("asset", "usedBy", new GUIContent("Find Used By"), FindUsage);
-			}
 		}
 
 		[SearchSelector("refCount", provider: providerId)]
@@ -512,22 +506,6 @@ namespace UnityEditor.Search
 				else
 					Build();
 			}
-		}
-
-		static void FindUsage(SearchItem item)
-		{
-			if (!GlobalObjectId.TryParse(item.id, out var gid))
-				return;
-			var searchContext = SearchService.CreateContext(providerId, $"ref:{gid.assetGUID}");
-			SearchService.ShowWindow(searchContext, "References", saveFilters: false);
-		}
-
-		static void FindUsings(SearchItem item)
-		{
-			if (!GlobalObjectId.TryParse(item.id, out var gid))
-				return;
-			var searchContext = SearchService.CreateContext(providerId, $"from:{gid.assetGUID}");
-			SearchService.ShowWindow(searchContext, "Dependencies (Uses)", saveFilters: false);
 		}
 
 		static SearchAction SelectAsset()

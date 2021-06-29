@@ -15,6 +15,10 @@ namespace UnityEditor.Search
 
 		static void DrawDependencies(string guid, Rect rect)
 		{
+			// Do not render anything if not in details view.
+			if (rect.height > 25f || Event.current.type != EventType.Repaint)
+				return;
+
 			var count = Dependency.GetReferenceCount(guid);
 			if (count == -1)
 				return;
@@ -22,7 +26,8 @@ namespace UnityEditor.Search
 			if (miniLabelAlignRight == null)
 				miniLabelAlignRight = CreateLabelStyle();
 
-			var r = new Rect(rect.x - 14f, rect.y, 16f, rect.height);
+			float maxWidth = miniLabelAlignRight.fixedWidth;
+			var r = new Rect(rect.xMax - maxWidth, rect.y, maxWidth, rect.height);
 			GUI.Label(r, Utils.FormatCount((ulong)count), miniLabelAlignRight);
 		}
 
@@ -30,9 +35,9 @@ namespace UnityEditor.Search
 		{
 			return new GUIStyle(EditorStyles.miniLabel)
 			{
-				fontSize = EditorStyles.miniLabel.fontSize - 1,
 				alignment = TextAnchor.MiddleRight,
-				padding = new RectOffset(0, 0, 0, 0)
+				padding = new RectOffset(0, 4, 0, 0),
+				fixedWidth = 16f
 			};
 		}
 	}

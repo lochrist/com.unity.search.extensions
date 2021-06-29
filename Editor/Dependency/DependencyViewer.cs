@@ -70,7 +70,11 @@ namespace UnityEditor.Search
 					EditorGUI.EndDisabledGroup();
 					GUILayout.Label(m_CurrentState?.description ?? Utils.GUIContentTemp("No selection"), GUILayout.Height(18f));
 					GUILayout.FlexibleSpace();
-					if (EditorGUILayout.DropdownButton(new GUIContent(m_CurrentState.name), FocusType.Passive))
+
+					if (EditorGUILayout.DropdownButton(Utils.GUIContentTemp("Columns"), FocusType.Passive))
+						SelectDependencyColumns();
+
+					if (EditorGUILayout.DropdownButton(Utils.GUIContentTemp(m_CurrentState.name), FocusType.Passive))
 						OnSourceChange();
 					EditorGUI.BeginChangeCheck();
 
@@ -111,7 +115,29 @@ namespace UnityEditor.Search
 			}
 		}
 
-		public void PushViewerState(DependencyViewerState state)
+        private void SelectDependencyColumns()
+        {
+            var menu = new GenericMenu();
+			var columnSetup = DependencyState.defaultColumns;
+            menu.AddItem(new GUIContent("Used By"), (columnSetup & DependencyState.DependencyColumns.UsedByRefCount) != 0, () => ToggleColumn(DependencyState.DependencyColumns.UsedByRefCount));
+			menu.AddItem(new GUIContent("Path"), (columnSetup & DependencyState.DependencyColumns.Path) != 0, () => ToggleColumn(DependencyState.DependencyColumns.Path));
+			menu.AddItem(new GUIContent("Type"), (columnSetup & DependencyState.DependencyColumns.Type) != 0, () => ToggleColumn(DependencyState.DependencyColumns.Type));
+			menu.AddItem(new GUIContent("Size"), (columnSetup & DependencyState.DependencyColumns.Size) != 0, () => ToggleColumn(DependencyState.DependencyColumns.Size));
+			menu.ShowAsContext();
+        }
+
+        private void ToggleColumn(in DependencyState.DependencyColumns dc)
+        {
+			var columnSetup = DependencyState.defaultColumns;
+			if ((columnSetup & dc) != 0)
+				columnSetup &= ~dc;
+			else
+				columnSetup |= dc;
+			DependencyState.defaultColumns = columnSetup;
+			UpdateSelection();
+        }
+
+        public void PushViewerState(DependencyViewerState state)
 		{
 			if (state == null)
 				return;
@@ -132,11 +158,16 @@ namespace UnityEditor.Search
 		{
 			if (UnityEditor.Selection.objects.Length == 0 || m_LockSelection || !m_CurrentState.trackSelection)
 				return;
-			PushViewerState(m_CurrentState.provider.CreateState());
-			Repaint();
+			UpdateSelection();
 		}
 
-		void SetViewerState(DependencyViewerState state)
+        void UpdateSelection()
+        {
+            PushViewerState(m_CurrentState.provider.CreateState());
+            Repaint();
+        }
+
+        void SetViewerState(DependencyViewerState state)
 		{
 			m_CurrentState = state;
 			m_Views = BuildViews(m_CurrentState);
