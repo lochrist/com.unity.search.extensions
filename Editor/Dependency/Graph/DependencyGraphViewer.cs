@@ -238,12 +238,12 @@ namespace UnityEditor.Search
         private void DrawNodeWindow(in Rect windowRect, Event evt, in Node node)
         {
             const float kPreviewOffsetY = 10.0f;
-            if (evt.type == EventType.Repaint)
+            if (evt.type == EventType.Repaint && node.preview)
             {
                 var previewOffset = (kNodeSize - kPreviewSize) / 2.0f;
                 GUI.DrawTexture(new Rect(
                         previewOffset, previewOffset + kPreviewOffsetY,
-                        kPreviewSize, kPreviewSize), node.preview ?? EditorGUIUtility.FindTexture("DefaultAsset"));
+                        kPreviewSize, kPreviewSize), node.preview);
             }
 
             const float kHeightDiff = 2.0f;
