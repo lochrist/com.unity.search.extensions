@@ -16,11 +16,8 @@ using System.Threading;
 namespace UnityEditor.Search
 {
     // Syntax:
-    // all           => Yield all results
     // <guid>        => Yield asset with <guid>
-    // id:<guid>     => Yield asset with <guid>
-    // path:<path>   => Yield asset at <path>
-    // t:<extension> => Yield assets with <extension>
+    // <path>        => Yield asset at <path>
     //
     // is:file       => Yield file assets
     // is:folder     => Yield folder assets
@@ -38,7 +35,11 @@ namespace UnityEditor.Search
     {
         public const string providerId = "dep";
         const string dependencyIndexLibraryPath = "Library/dependencies.index";
-        readonly static Regex guidRx = new Regex(@"guid:\s+([a-z0-9]{32})");
+        readonly static Regex[] guidRxs = new [] {
+            new Regex(@"guid:\s+([a-z0-9]{32})"),
+            new Regex(@"guid:\s+([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})")
+        };
+        readonly static Regex hash128Regex = new Regex(@"guid:\s+Value:\s+x:\s(\d+)\s+y:\s(\d+)\s+z:\s(\d+)\s+w:\s(\d+)");
 
         static SearchIndexer index;
         readonly static ConcurrentDictionary<string, string> guidToPathMap = new ConcurrentDictionary<string, string>();
@@ -236,23 +237,11 @@ namespace UnityEditor.Search
                 var guid = kvp.Value;
                 var path = kvp.Key;
 
-                var ext = Path.GetExtension(path);
-                if (ext.Length > 0 && ext[0] == '.')
-                    ext = ext.Substring(1);
-
                 Progress.Report(progressId, completed++, total, path);
 
                 var di = AddGuid(guid);
-
-                index.AddExactWord("all", 0, di);
-                AddStaticProperty("id", guid, di, exact: true);
-                AddStaticProperty("path", path, di, exact: true);
-                AddStaticProperty("t", GetExtension(path), di);
-                if (Directory.Exists(path))
-                    AddStaticProperty("is", "folder", di);
-                else
-                    AddStaticProperty("is", "file", di);
-                if (path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                AddStaticProperty("is", Directory.Exists(path) ? "folder" : "file", di);
+                if (path.StartsWith("Packages/", StringComparison.Ordinal))
                     AddStaticProperty("is", "package", di);
                 index.AddWord(guid, guid.Length, 0, di);
                 IndexWordComponents(di, path);
@@ -425,21 +414,63 @@ namespace UnityEditor.Search
             index.AddProperty(key, value, value.Length, value.Length, 0, di, false, exact);
         }
 
-        static void ScanDependencies(string guid, string content)
+        static void ScanDependencies(in string guid, in string content)
         {
-            foreach (Match match in guidRx.Matches(content))
+            foreach (var guidRx in guidRxs)
             {
-                if (match.Groups.Count < 2)
-                    continue;
-                var rg = match.Groups[1].Value;
-                if (rg == guid || ignoredGuids.Contains(rg))
-                    continue;
-
-                TrackGuid(rg);
-
-                guidToRefsMap[guid].TryAdd(rg, 0);
-                guidFromRefsMap[rg].TryAdd(guid, 0);
+                foreach (Match match in guidRx.Matches(content))
+                    ScanDependencies(match, guid);
             }
+
+            foreach (Match match in hash128Regex.Matches(content))
+            {
+                if (Utils.TryParse(match.Groups[1].ToString(), out uint h1) && 
+                    Utils.TryParse(match.Groups[2].ToString(), out uint h2) &&
+                    Utils.TryParse(match.Groups[3].ToString(), out uint h3) &&
+                    Utils.TryParse(match.Groups[4].ToString(), out uint h4))
+                {
+                    if (h1 == 0 && h2 == 0 && h3 == 0 && h4 == 0)
+                        continue;
+                    AddDependencies(Hash128ToString(h1, h2, h3, h4), guid);
+                }
+            }
+        }
+
+        static readonly char[] k_HexToLiteral = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+        static string Hash128ToString(params uint[] Value)
+        {
+            var chars = new char[32];
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 7; j >= 0; j--)
+                {
+                    uint cur = Value[i];
+                    cur >>= (j * 4);
+                    cur &= 0xF;
+                    chars[i * 8 + j] = k_HexToLiteral[cur];
+                }
+            }
+
+            return new string(chars, 0, 32);
+        }
+
+        static bool ScanDependencies(in Match match, in string guid)
+        {
+            if (match.Groups.Count < 2)
+                return false;
+            var rg = match.Groups[1].Value.Replace("-", "");
+            return AddDependencies(rg, guid);
+        }
+
+        static bool AddDependencies(in string rg, in string guid)
+        {
+            if (rg == guid || ignoredGuids.Contains(rg))
+                return false;
+
+            TrackGuid(rg);
+            guidToRefsMap[guid].TryAdd(rg, 0);
+            guidFromRefsMap[rg].TryAdd(guid, 0);
+            return true;
         }
 
         static void TrackGuid(string guid)
