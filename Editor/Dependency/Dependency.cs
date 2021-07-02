@@ -1,15 +1,12 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using System.Threading;
 
 #pragma warning disable UNT0007 // Null coalescing on Unity objects
 
@@ -34,7 +31,7 @@ namespace UnityEditor.Search
     static class Dependency
     {
         public const string providerId = "dep";
-        const string dependencyIndexLibraryPath = "Library/dependencies.index";
+        public const string dependencyIndexLibraryPath = "Library/dependencies_v1.index";
         
         static DependencyIndexer index;
 
@@ -210,7 +207,7 @@ namespace UnityEditor.Search
             return null;
         }
 
-        static void OnEnable()
+        static void LoadGlobalIndex()
         {
             if (index == null)
             {
@@ -341,7 +338,7 @@ namespace UnityEditor.Search
                 Utils.StartDrag(new[] { GetObject(item) }, new[] { GetAssetPath(item) }, item.GetLabel(context, true));
         }
 
-        private static string GetAssetPath(in SearchItem item)
+        static string GetAssetPath(in SearchItem item)
         {
             return AssetDatabase.GUIDToAssetPath(item.id);
         }
@@ -360,7 +357,7 @@ namespace UnityEditor.Search
         static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)
         {
             if (index == null)
-                OnEnable();
+                LoadGlobalIndex();
             while (index == null || !index.IsReady())
                 yield return null;
             foreach (var e in index.Search(context.searchQuery.ToLowerInvariant(), context, provider))
@@ -377,8 +374,8 @@ namespace UnityEditor.Search
                 Debug.LogError($"Failed to load dependency index at {indexPath}");
             else
                 Debug.Log($"Loading dependency index took {sw.Elapsed.TotalMilliseconds,3:0.##} ms ({EditorUtility.FormatBytes(indexBytes.Length)} bytes)");
-            SearchMonitor.contentRefreshed -= OnContentChanged;
-            SearchMonitor.contentRefreshed += OnContentChanged;
+            //SearchMonitor.contentRefreshed -= OnContentChanged;
+            //SearchMonitor.contentRefreshed += OnContentChanged;
         }
 
         static void OnContentChanged(string[] updated, string[] removed, string[] moved)
