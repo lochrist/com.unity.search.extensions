@@ -181,6 +181,7 @@ namespace UnityEditor.Search
 		private void BuildTable()
 		{
 			table = new PropertyTable(state.guid, this);
+			ResizeColumns();
 			host.Repaint();
 		}
 
@@ -204,5 +205,16 @@ namespace UnityEditor.Search
 		// ITableView
 		public IEnumerable<SearchItem> GetRows() => throw new NotImplementedException();
 		public SearchTable GetSearchTable() => throw new NotImplementedException();
-	}
+
+        public void ResizeColumns()
+        {
+			var columns = table.multiColumnHeader.state.columns;
+			foreach (var c in columns)
+				c.autoResize = false;
+			if (columns.Length == 0)
+				return;
+			columns[Math.Min(columns.Length-1, 1)].autoResize = true;
+            table.multiColumnHeader.ResizeToFit();
+		}
+    }
 }

@@ -210,5 +210,11 @@ namespace UnityEditor.Search
 			SetViewerState(m_History[--m_HistoryCursor]);
 			Repaint();
 		}
+
+		void ResizeColumns()
+        {
+			foreach (var v in m_Views)
+				v.ResizeColumns();
+        }
 	}
 }
