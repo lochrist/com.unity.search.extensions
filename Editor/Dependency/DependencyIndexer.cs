@@ -10,6 +10,20 @@ using System.Threading;
 
 namespace UnityEditor.Search
 {
+    // Syntax:
+    // <guid>        => Yield asset with <guid>
+    //
+    // is:file       => Yield file assets
+    // is:folder     => Yield folder assets
+    // is:package    => Yield package assets
+    // is:broken     => Yield assets that have at least one broken reference.
+    // is:missing    => Yield GUIDs which are missing an valid asset (a GUID was found but no valid asset use that GUID)
+    //
+    // from:         => Yield assets which are used by asset with <guid>
+    // in=<count>    => Yield assets which are used <count> times
+    //
+    // ref:<guid>    => Yield assets which are referencing the asset with <guid>
+    // out=<count>   => Yield assets which have <count> references to other assets
     class DependencyIndexer : SearchIndexer
     {
         static readonly Regex[] guidRxs = new [] {
@@ -59,7 +73,6 @@ namespace UnityEditor.Search
                 if (path.StartsWith("Packages/", StringComparison.Ordinal))
                     AddStaticProperty("is", "package", di);
                 AddWord(guid, guid.Length, 0, di);
-                IndexWordComponents(di, path);
             }
 
             foreach (var kvp in guidToRefsMap)
@@ -96,9 +109,7 @@ namespace UnityEditor.Search
                         AddStaticProperty("from", fromPath, di, exact: true);
                 }
 
-                if (guidToPathMap.TryGetValue(guid, out var path))
-                    AddStaticProperty("is", "valid", di);
-                else
+                if (!guidToPathMap.TryGetValue(guid, out var path))
                 {
                     AddStaticProperty("is", "missing", di);
 
@@ -123,6 +134,8 @@ namespace UnityEditor.Search
                     SetMetaInfo(guid, $"Refered by {refString}");
                 }
             }
+
+            Clear();
         }
 
         public void Setup()
@@ -209,7 +222,7 @@ namespace UnityEditor.Search
                 ProcessScript(assetPath);
         }
 
-        void ProcessScript(string path)
+        void ProcessScript(in string path)
         {
             var scriptGuid = ToGuid(path);
             if (string.IsNullOrEmpty(scriptGuid))
@@ -236,12 +249,6 @@ namespace UnityEditor.Search
                 }
                 lineIndex++;
             }
-        }
-
-        void IndexWordComponents(int documentIndex, string word)
-        {
-            foreach (var c in SearchUtils.SplitFileEntryComponents(word, SearchUtils.entrySeparators))
-                AddWord(c.ToLowerInvariant(), 0, documentIndex);
         }
 
         void AddStaticProperty(string key, string value, int di, bool exact = false)
@@ -359,8 +366,37 @@ namespace UnityEditor.Search
 
         public void Update(in string[] updated, in string[] removed, in string[] moved)
         {
+            #if NOT_WORKING
             // Postpone changes up to 60 seconds. If nothing changed after 60 seconds,
             // kick off a new dependency database build, when ready, switch the global index db.
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var progressId = Progress.Start($"Updating dependency index ({updated.Length} assets)");
+
+            var affectedGuids = new HashSet<string>();
+            ignoredGuids.UnionWith(AssetDatabase.FindAssets("l:Ignore"));
+
+            foreach (var u in updated.Concat(removed).Concat(moved))
+            {
+                affectedGuids.Add(AssetDatabase.AssetPathToGUID(u));
+                foreach(var r in Search($"ref=\"{u}\"", patternMatchLimit: int.MaxValue))
+                    affectedGuids.Add(r.id);
+                foreach (var r in Search($"from=\"{u}\"", patternMatchLimit: int.MaxValue))
+                    affectedGuids.Add(r.id);
+            }
+
+            var newIndex = new DependencyIndexer();
+
+
+            Progress.Finish(progressId);
+
+            UnityEngine.Debug.Log($"Incremental dependency indexing took {sw.Elapsed.TotalMilliseconds,3:0.##} ms");
+
+            UnityEngine.Debug.Log($"Update {string.Join(",", updated)}");
+            //UnityEngine.Debug.Log($"Remove {string.Join(",", removed)}");
+            //UnityEngine.Debug.Log($"Move {string.Join(",", moved)}");
+            UnityEngine.Debug.Log($"Affected GUIDs {string.Join(", ", affectedGuids)}");
+            #endif
         }
     }
 }

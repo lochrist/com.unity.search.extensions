@@ -12,22 +12,6 @@ using UnityEngine;
 
 namespace UnityEditor.Search
 {
-    // Syntax:
-    // <guid>        => Yield asset with <guid>
-    // <path>        => Yield asset at <path>
-    //
-    // is:file       => Yield file assets
-    // is:folder     => Yield folder assets
-    // is:package    => Yield package assets
-    // is:valid      => Yield assets which have no missing references
-    // is:broken     => Yield assets that have at least one broken reference.
-    // is:missing    => Yield GUIDs which are missing an valid asset (a GUID was found but no valid asset use that GUID)
-    //
-    // from:         => Yield assets which are used by asset with <guid>
-    // in=<count>    => Yield assets which are used <count> times
-    //
-    // ref:<guid>    => Yield assets which are referencing the asset with <guid>
-    // out=<count>   => Yield assets which have <count> references to other assets
     static class Dependency
     {
         public const string providerId = "dep";

@@ -64,7 +64,7 @@ namespace UnityEditor.Search
 		[DependencyViewerProvider]
 		internal static DependencyViewerState UnusedAssets()
 		{
-			var query = SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file is:valid -is:package");
+			var query = SearchService.CreateContext(new[] { "dep" }, "dep:in=0 is:file -is:package");
 			var title = ObjectNames.NicifyVariableName(nameof(UnusedAssets));
 			return new DependencyViewerState(title,
 				new DependencyState(title, query, new SearchTable(title, "Name", new[] {
