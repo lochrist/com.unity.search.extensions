@@ -54,7 +54,7 @@ namespace UnityEditor.Search
 
                 Progress.Report(progressId, completed++, total, path);
 
-                var di = AddGuid(guid);
+                var di = AddGuid(guid, path);
                 AddStaticProperty("is", Directory.Exists(path) ? "folder" : "file", di);
                 if (path.StartsWith("Packages/", StringComparison.Ordinal))
                     AddStaticProperty("is", "package", di);
@@ -317,12 +317,12 @@ namespace UnityEditor.Search
                 guidFromRefsMap.TryAdd(guid, new ConcurrentDictionary<string, byte>());
         }
 
-        int AddGuid(in string guid)
+        int AddGuid(in string guid, in string path = null)
         {
             if (guidToDocMap.TryGetValue(guid, out var di))
                 return di;
 
-            di = AddDocument(guid);
+            di = AddDocument(guid, null, path, checkIfExists: false, SearchDocumentFlags.Asset);
             guidToDocMap.Add(guid, di);
             return di;
         }
@@ -355,6 +355,12 @@ namespace UnityEditor.Search
             if (ResolveAssetPath(id, out var path))
                 return path;
             return null;
+        }
+
+        public void Update(in string[] updated, in string[] removed, in string[] moved)
+        {
+            // Postpone changes up to 60 seconds. If nothing changed after 60 seconds,
+            // kick off a new dependency database build, when ready, switch the global index db.
         }
     }
 }

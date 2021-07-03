@@ -374,36 +374,13 @@ namespace UnityEditor.Search
                 Debug.LogError($"Failed to load dependency index at {indexPath}");
             else
                 Debug.Log($"Loading dependency index took {sw.Elapsed.TotalMilliseconds,3:0.##} ms ({EditorUtility.FormatBytes(indexBytes.Length)} bytes)");
-            //SearchMonitor.contentRefreshed -= OnContentChanged;
-            //SearchMonitor.contentRefreshed += OnContentChanged;
+            SearchMonitor.contentRefreshed -= OnContentChanged;
+            SearchMonitor.contentRefreshed += OnContentChanged;
         }
 
         static void OnContentChanged(string[] updated, string[] removed, string[] moved)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            var progressId = Progress.Start($"Updating dependency index ({updated.Length} assets)");
-
-            Debug.Log($"Updated {string.Join(",", updated)}");
-            Debug.Log($"Removed {string.Join(",", removed)}");
-            Debug.Log($"Moved {string.Join(",", moved)}");
-
-            var incrementalIndex = new DependencyIndexer();
-            incrementalIndex.Setup();
-            Task.Run(() =>
-            {
-                var metaFiles = updated.Select(p => p + ".meta").Where(p => File.Exists(p)).ToArray();
-
-                incrementalIndex.Start();
-                incrementalIndex.Build(progressId, metaFiles);
-
-                Progress.Report(progressId, -1f, $"Merging dependency index");
-                incrementalIndex.Finish((bytes) =>
-                {
-                    Progress.Finish(progressId, Progress.Status.Succeeded);
-
-                    Debug.Log($"Incremental dependency indexing took {sw.Elapsed.TotalMilliseconds,3:0.##} ms ({incrementalIndex.documentCount}, {EditorUtility.FormatBytes(bytes.Length)} bytes)");
-                }, removedDocuments: null);
-            });
+            index?.Update(updated, removed, moved);
         }
     }
 }
