@@ -122,7 +122,7 @@ class PropertyDatabaseWindow : EditorWindow
             return;
 
         if (s_PropertyDatabaseWindowUI == null)
-            s_PropertyDatabaseWindowUI.Clear();
+            return;
 
         var scrollView = new ScrollView();
 
@@ -149,7 +149,7 @@ class PropertyDatabaseWindow : EditorWindow
         var stringListViewUI = ShowSpecificListView("String Table", stringListViewUIAsset, stringListViewItemUIAsset, true);
 
         var listViewGroupBox = s_PropertyDatabaseWindowUI.Q("ListViewGroupBox");
-        if (listViewGroupBox.childCount == 1)
+        if (listViewGroupBox.childCount >= 1)
             listViewGroupBox.Clear();
 
         scrollView.Add(fileRecordsListViewUI);
