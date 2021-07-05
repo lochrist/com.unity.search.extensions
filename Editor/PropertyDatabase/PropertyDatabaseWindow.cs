@@ -178,10 +178,12 @@ class PropertyDatabaseWindow : EditorWindow
         listViewTitle.text = title;
 
         var listView = listViewUI.Q<UnityEngine.UIElements.ListView>();
+        listView.makeItem = () => listViewItemUIAsset.Instantiate(null);
+
+        var listViewHeader = listViewUI.Q<GroupBox>("ListViewHeader");
         var scrollView = listView.Q<ScrollView>();
         scrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-        scrollView.verticalScrollerVisibility = ScrollerVisibility.Hidden;
-        listView.makeItem = () => new VisualElement();
+        scrollView.RegisterCallback<GeometryChangedEvent>((evt) => SyncHeaderAndListsGeometry(evt, listView, listViewHeader));
 
         if (isStringListView)
         {
@@ -191,7 +193,7 @@ class PropertyDatabaseWindow : EditorWindow
             if (allStringsFromTable.ToList().Count == 0)
                 listViewTitle.text += " (Empty)";
 
-            listView.bindItem = (ve, index) => PopulatePropertyStringListView(ve, index, stringTableView, listViewItemUIAsset);
+            listView.bindItem = (ve, index) => PopulatePropertyStringListView(ve, index, stringTableView);
             listView.itemsSource = allStringsFromTable.ToList();
         }
         else
@@ -199,19 +201,27 @@ class PropertyDatabaseWindow : EditorWindow
             if (allRecords.Count == 0)
                 listViewTitle.text += " (Empty)";
 
-            listView.bindItem = (ve, index) => PopulatePropetyDatabaseListView(ve, index, allRecords, listViewItemUIAsset);
+            listView.bindItem = (ve, index) => PopulatePropetyDatabaseListView(ve, index, allRecords);
             listView.itemsSource = allRecords;
         }
 
         return listViewUI;
     }
 
-    private static void PopulatePropertyStringListView(VisualElement ve, int index, PropertyStringTableView allStrings, VisualTreeAsset listViewItemUI)
+    private static void SyncHeaderAndListsGeometry(GeometryChangedEvent evt, UnityEngine.UIElements.ListView listView, GroupBox listViewHeader)
+    {
+        if (listViewHeader == null || listView == null)
+            return;
+
+        var listScrollEnabled = listView.Q<ScrollView>().verticalScroller.enabledSelf;
+        listViewHeader.style.paddingRight = listScrollEnabled ? 13 : 0;
+    }
+
+    private static void PopulatePropertyStringListView(VisualElement ve, int index, PropertyStringTableView allStrings)
     {
         var allStringsFromTable = allStrings.GetAllStrings();
-        var ui = listViewItemUI.Instantiate(null);
 
-        var recordInfoTextField = ui.Query<TextField>().ToList();
+        var recordInfoTextField = ve.Query<TextField>().ToList();
         foreach (var textField in recordInfoTextField)
         {
             if (textField.name == "Symbol")
@@ -219,18 +229,15 @@ class PropertyDatabaseWindow : EditorWindow
             else if (textField.name == "StringValue")
                 textField.value = allStringsFromTable[index];
         }
-
-        ve.Add(ui);
     }
 
-    private static void PopulatePropetyDatabaseListView(VisualElement ve, int index, List<IPropertyDatabaseRecord> allRecords, VisualTreeAsset listViewItemUI)
+    private static void PopulatePropetyDatabaseListView(VisualElement ve, int index, List<IPropertyDatabaseRecord> allRecords)
     {
-        var ui = listViewItemUI.Instantiate(null);
-        var recordInfoToggle = ui.Q<Toggle>("RecordValid");
+        var recordInfoToggle = ve.Q<Toggle>("RecordValid");
         recordInfoToggle.value = allRecords[index].validRecord;
         recordInfoToggle.SetEnabled(false);
 
-        var recordInfoTextField = ui.Query<TextField>().ToList();
+        var recordInfoTextField = ve.Query<TextField>().ToList();
         foreach (var textField in recordInfoTextField)
         {
             if (textField.name == "DocumentKey")
@@ -242,10 +249,12 @@ class PropertyDatabaseWindow : EditorWindow
         }
 
         var recordValueVisualElement = CreateRecordValueVisualElement(allRecords[index].value);
-        var recordValueColumn = ui.Q("RecordValue");
-        recordValueColumn.Add(recordValueVisualElement);
+        var recordValueColumn = ve.Q("RecordValue");
 
-        ve.Add(ui);
+        if (recordValueColumn.childCount >= 1)
+            recordValueColumn.Clear();
+
+        recordValueColumn.Add(recordValueVisualElement);
     }
 
     private static VisualElement CreateRecordValueVisualElement(IPropertyDatabaseRecordValue value)
