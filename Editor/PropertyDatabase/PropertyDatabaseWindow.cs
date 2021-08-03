@@ -10,61 +10,61 @@ using UnityEditor;
 
 class PropertyDatabaseWindow : EditorWindow
 {
-    private const string k_PropertyDatabaseWindowAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/PropertyDatabaseWindow.uxml";
-    private const string k_PropertyDatabaseListViewAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/PropertyDatabaseListView.uxml";
-    private const string k_PropertyDatabaseItemAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/PropertyDatabaseItem.uxml";
-    private const string k_PropertyStringListViewAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/PropertyStringListView.uxml";
-    private const string k_PropertyStringItemAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/PropertyStringItem.uxml";
+    private const string k_ParentAssetPath = "Packages/com.unity.search.extensions/Editor/UXML/PropertyDatabase/";
+    private const string k_PropertyDatabaseWindowAssetPath = k_ParentAssetPath + "PropertyDatabaseWindow.uxml";
+    private const string k_PropertyDatabaseListViewAssetPath = k_ParentAssetPath + "PropertyDatabaseListView.uxml";
+    private const string k_PropertyDatabaseItemAssetPath = k_ParentAssetPath + "PropertyDatabaseItem.uxml";
+    private const string k_PropertyStringListViewAssetPath = k_ParentAssetPath + "PropertyStringListView.uxml";
+    private const string k_PropertyStringItemAssetPath = k_ParentAssetPath + "PropertyStringItem.uxml";
 
-    private static string s_PropertyDatabaseFileName;
+    private string m_PropertyDatabaseFileName;
 
-    private static PropertyDatabaseView s_PropertyDatabaseView;
-    private static TemplateContainer s_PropertyDatabaseWindowUI;
+    private PropertyDatabaseView m_PropertyDatabaseView;
+    private TemplateContainer m_PropertyDatabaseWindowUI;
 
-    private static bool s_CreatedFromPropertyDatabaseView = false;
+    private bool m_CreatedFromPropertyDatabaseView = false;
 
     [MenuItem("Window/Search/Property Database/Open")]
-    static void Create()
+    static void OpenWindow()
     {
-        var window = GetWindow<PropertyDatabaseWindow>();
+        var window = CreateInstance<PropertyDatabaseWindow>();
         window.titleContent.text = "Property Database";
-        window.Show(true);
+        window.Show();
     }
 
     public static PropertyDatabaseWindow CreateFromPropertyDatabaseView(PropertyDatabaseView view)
     {
-        s_CreatedFromPropertyDatabaseView = true;
-        s_PropertyDatabaseView = view;
-        CreatePropertyDatabaseWindowUI();
-        ShowPropertyDatabaseListView();
-        var window = GetWindow<PropertyDatabaseWindow>();
+        var window = CreateInstance<PropertyDatabaseWindow>();
         window.titleContent.text = "Property Database";
+        window.m_CreatedFromPropertyDatabaseView = true;
+        window.m_PropertyDatabaseView = view;
+        window.ShowPropertyDatabaseListView();
 
         return window;
     }
 
     public void OnEnable()
     {
-        if (s_PropertyDatabaseWindowUI == null)
+        if (m_PropertyDatabaseWindowUI == null)
             CreatePropertyDatabaseWindowUI();
 
-        rootVisualElement.Add(s_PropertyDatabaseWindowUI);
+        rootVisualElement.Add(m_PropertyDatabaseWindowUI);
     }
 
     public void OnDestroy()
     {
-        if (s_PropertyDatabaseWindowUI != null)
+        if (m_PropertyDatabaseWindowUI != null)
         {
-            s_PropertyDatabaseWindowUI.Clear();
-            s_PropertyDatabaseWindowUI = null;
+            m_PropertyDatabaseWindowUI.Clear();
+            m_PropertyDatabaseWindowUI = null;
         }
 
-        s_PropertyDatabaseFileName = string.Empty;
-        s_PropertyDatabaseView = default(PropertyDatabaseView);
-        s_CreatedFromPropertyDatabaseView = false;
+        m_PropertyDatabaseFileName = string.Empty;
+        m_PropertyDatabaseView = default(PropertyDatabaseView);
+        m_CreatedFromPropertyDatabaseView = false;
     }
 
-    private static VisualTreeAsset LoadAssetPath(string filePath)
+    private VisualTreeAsset LoadAssetPath(string filePath)
     {
         var UIAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(filePath);
         if (UIAsset == null)
@@ -73,30 +73,32 @@ class PropertyDatabaseWindow : EditorWindow
         return UIAsset;
     }
 
-    private static void CreatePropertyDatabaseWindowUI()
+    private void CreatePropertyDatabaseWindowUI()
     {
         var windowUIAsset = LoadAssetPath(k_PropertyDatabaseWindowAssetPath);
         if (windowUIAsset == null)
             return;
 
-        s_PropertyDatabaseWindowUI = windowUIAsset.Instantiate(null);
-        var header = s_PropertyDatabaseWindowUI.Q("Header");
+        m_PropertyDatabaseWindowUI = windowUIAsset.Instantiate(null);
+        var header = m_PropertyDatabaseWindowUI.Q("Header");
         var headerText = header.Q<Label>();
         headerText.text = "Load any Property Database file to visualize its content.";
 
-        var loadButton = s_PropertyDatabaseWindowUI.Q<Button>("LoadButton");
-        var refreshButton = s_PropertyDatabaseWindowUI.Q<Button>("RefreshButton");
+        var loadButton = m_PropertyDatabaseWindowUI.Q<Button>("LoadButton");
+        var refreshButton = m_PropertyDatabaseWindowUI.Q<Button>("RefreshButton");
         loadButton.clicked += LoadPropertyDatabaseFilePath;
         refreshButton.clicked += ShowPropertyDatabaseListView;
     }
 
-    private static void LoadPropertyDatabaseFilePath()
+    private void LoadPropertyDatabaseFilePath()
     {
         var initialFolder = Path.GetDirectoryName(Application.dataPath);
         var filePath = EditorUtility.OpenFilePanel("Open Property Database", initialFolder, "db");
 
         if (string.IsNullOrEmpty(filePath))
+        {
             return;
+        }
         else if (!File.Exists(filePath + ".st"))
         {
             Debug.Log($"The file you are trying to load { filePath } is not a PropertyDatabase.");
@@ -110,25 +112,25 @@ class PropertyDatabaseWindow : EditorWindow
             return;
         }
 
-        s_CreatedFromPropertyDatabaseView = false;
-        s_PropertyDatabaseView = propertyDatabase.GetView();
-        s_PropertyDatabaseFileName = Path.GetFileName(filePath);
+        m_CreatedFromPropertyDatabaseView = false;
+        m_PropertyDatabaseView = propertyDatabase.GetView();
+        m_PropertyDatabaseFileName = Path.GetFileName(filePath);
         ShowPropertyDatabaseListView();
     }
 
-    private static void ShowPropertyDatabaseListView()
+    private void ShowPropertyDatabaseListView()
     {
-        if (s_PropertyDatabaseView.Equals(default(PropertyDatabaseView)))
+        if (m_PropertyDatabaseView.Equals(default(PropertyDatabaseView)))
             return;
 
-        if (s_PropertyDatabaseWindowUI == null)
+        if (m_PropertyDatabaseWindowUI == null)
             return;
 
         var scrollView = new ScrollView();
 
-        var allFileRecords = s_PropertyDatabaseView.fileStoreView.EnumerateAll().ToList();
-        var allMemoryRecords = s_PropertyDatabaseView.memoryStoreView.EnumerateAll().ToList();
-        var allVolatileMemoryRecords = s_PropertyDatabaseView.volatileMemoryStoreView.EnumerateAll().ToList();
+        var allFileRecords = m_PropertyDatabaseView.fileStoreView.EnumerateAll().ToList();
+        var allMemoryRecords = m_PropertyDatabaseView.memoryStoreView.EnumerateAll().ToList();
+        var allVolatileMemoryRecords = m_PropertyDatabaseView.volatileMemoryStoreView.EnumerateAll().ToList();
 
         var listViewItemUIAsset = LoadAssetPath(k_PropertyDatabaseItemAssetPath);
         var listViewUIAsset = LoadAssetPath(k_PropertyDatabaseListViewAssetPath);
@@ -148,7 +150,7 @@ class PropertyDatabaseWindow : EditorWindow
 
         var stringListViewUI = ShowSpecificListView("String Table", stringListViewUIAsset, stringListViewItemUIAsset, true);
 
-        var listViewGroupBox = s_PropertyDatabaseWindowUI.Q("ListViewGroupBox");
+        var listViewGroupBox = m_PropertyDatabaseWindowUI.Q("ListViewGroupBox");
         if (listViewGroupBox.childCount >= 1)
             listViewGroupBox.Clear();
 
@@ -157,17 +159,17 @@ class PropertyDatabaseWindow : EditorWindow
         scrollView.Add(volatileMemoryListViewUI);
         scrollView.Add(stringListViewUI);
 
-        var header = s_PropertyDatabaseWindowUI.Q("Header");
+        var header = m_PropertyDatabaseWindowUI.Q("Header");
         var headerText = header.Q<Label>();
-        if (!s_CreatedFromPropertyDatabaseView)
-            headerText.text = "PropertyDatabase File: " + s_PropertyDatabaseFileName;
+        if (!m_CreatedFromPropertyDatabaseView)
+            headerText.text = "PropertyDatabase File: " + m_PropertyDatabaseFileName;
         else
             headerText.text = "Database loaded from a PropertyDatabaseView instance.";
 
         listViewGroupBox.Add(scrollView);
     }
 
-    private static VisualElement ShowSpecificListView(string title, VisualTreeAsset listViewUIAsset, VisualTreeAsset listViewItemUIAsset,
+    private VisualElement ShowSpecificListView(string title, VisualTreeAsset listViewUIAsset, VisualTreeAsset listViewItemUIAsset,
         bool isStringListView, List<IPropertyDatabaseRecord> allRecords = null)
     {
         if (!isStringListView && allRecords == null)
@@ -187,7 +189,7 @@ class PropertyDatabaseWindow : EditorWindow
 
         if (isStringListView)
         {
-            var stringTableView = s_PropertyDatabaseView.stringTableView;
+            var stringTableView = m_PropertyDatabaseView.stringTableView;
             var allStringsFromTable = stringTableView.GetAllStrings();
 
             if (allStringsFromTable.ToList().Count == 0)
@@ -208,7 +210,7 @@ class PropertyDatabaseWindow : EditorWindow
         return listViewUI;
     }
 
-    private static void SyncHeaderAndListsGeometry(GeometryChangedEvent evt, UnityEngine.UIElements.ListView listView, GroupBox listViewHeader)
+    private void SyncHeaderAndListsGeometry(GeometryChangedEvent evt, UnityEngine.UIElements.ListView listView, GroupBox listViewHeader)
     {
         if (listViewHeader == null || listView == null)
             return;
@@ -217,7 +219,7 @@ class PropertyDatabaseWindow : EditorWindow
         listViewHeader.style.paddingRight = listScrollEnabled ? 13 : 0;
     }
 
-    private static void PopulatePropertyStringListView(VisualElement ve, int index, PropertyStringTableView allStrings)
+    private void PopulatePropertyStringListView(VisualElement ve, int index, PropertyStringTableView allStrings)
     {
         var allStringsFromTable = allStrings.GetAllStrings();
 
@@ -231,7 +233,7 @@ class PropertyDatabaseWindow : EditorWindow
         }
     }
 
-    private static void PopulatePropetyDatabaseListView(VisualElement ve, int index, List<IPropertyDatabaseRecord> allRecords)
+    private void PopulatePropetyDatabaseListView(VisualElement ve, int index, List<IPropertyDatabaseRecord> allRecords)
     {
         var recordInfoToggle = ve.Q<Toggle>("RecordValid");
         recordInfoToggle.value = allRecords[index].validRecord;
@@ -257,9 +259,9 @@ class PropertyDatabaseWindow : EditorWindow
         recordValueColumn.Add(recordValueVisualElement);
     }
 
-    private static VisualElement CreateRecordValueVisualElement(IPropertyDatabaseRecordValue value)
+    private VisualElement CreateRecordValueVisualElement(IPropertyDatabaseRecordValue value)
     {
-        var objValue = s_PropertyDatabaseView.GetObjectFromRecordValue(value);
+        var objValue = m_PropertyDatabaseView.GetObjectFromRecordValue(value);
 
         switch (value.type)
         {
